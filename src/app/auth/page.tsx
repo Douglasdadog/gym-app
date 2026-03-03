@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function AuthPage() {
-  const [usernameOrEmail, setUsernameOrEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -49,11 +49,10 @@ export default function AuthPage() {
   }, [supabase, router, searchParams]);
 
   const getEmail = () => {
-    const v = usernameOrEmail.trim().toLowerCase();
-    if (!isSignUp && v === "user") return "user@cybergym.demo";
-    if (!isSignUp && v === "admin") return "admin@cybergym.demo";
-    if (isSignUp && !v.includes("@")) return `${v}@cybergym.local`;
-    return v;
+    const v = username.trim().toLowerCase();
+    if (v === "user") return "user@cybergym.demo";
+    if (v === "admin") return "admin@cybergym.demo";
+    return `${v}@cybergym.local`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -64,9 +63,7 @@ export default function AuthPage() {
     const redirectTo = searchParams.get("redirect") || "/dashboard";
     try {
       if (isSignUp) {
-        const displayName = usernameOrEmail.trim().includes("@")
-          ? usernameOrEmail.trim().split("@")[0]
-          : usernameOrEmail.trim();
+        const displayName = username.trim();
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
@@ -89,7 +86,7 @@ export default function AuthPage() {
           }
           router.refresh();
         } else {
-          setMessage("Check your email to confirm sign up.");
+          setMessage("Sign up complete! Please sign in with your username.");
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -141,11 +138,11 @@ export default function AuthPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
-            value={usernameOrEmail}
-            onChange={(e) => setUsernameOrEmail(e.target.value)}
-            placeholder={isSignUp ? "Username or email" : "Username or Email"}
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Username"
             required
-            autoComplete={isSignUp ? "email" : "username"}
+            autoComplete="username"
             className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
           />
           <input
@@ -180,7 +177,7 @@ export default function AuthPage() {
           Demo only: user / user123 &nbsp;|&nbsp; admin / admin123
         </p>
         <p className="mt-1 text-center text-xs text-white/30">
-          New users: sign up with a username or email (no verification required).
+          New users: sign up with a username and password.
         </p>
       </motion.div>
     </div>
