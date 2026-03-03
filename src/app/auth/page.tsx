@@ -52,6 +52,7 @@ export default function AuthPage() {
     const v = usernameOrEmail.trim().toLowerCase();
     if (!isSignUp && v === "user") return "user@cybergym.demo";
     if (!isSignUp && v === "admin") return "admin@cybergym.demo";
+    if (isSignUp && !v.includes("@")) return `${v}@cybergym.local`;
     return v;
   };
 
@@ -63,7 +64,14 @@ export default function AuthPage() {
     const redirectTo = searchParams.get("redirect") || "/dashboard";
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const displayName = usernameOrEmail.trim().includes("@")
+          ? usernameOrEmail.trim().split("@")[0]
+          : usernameOrEmail.trim();
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { data: { full_name: displayName || email } },
+        });
         if (error) throw error;
         if (data.session) {
           let role = "user";
@@ -132,10 +140,10 @@ export default function AuthPage() {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
-            type={isSignUp ? "email" : "text"}
+            type="text"
             value={usernameOrEmail}
             onChange={(e) => setUsernameOrEmail(e.target.value)}
-            placeholder={isSignUp ? "Your email address" : "Username or Email"}
+            placeholder={isSignUp ? "Username or email" : "Username or Email"}
             required
             autoComplete={isSignUp ? "email" : "username"}
             className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
@@ -172,7 +180,7 @@ export default function AuthPage() {
           Demo only: user / user123 &nbsp;|&nbsp; admin / admin123
         </p>
         <p className="mt-1 text-center text-xs text-white/30">
-          New users: click &quot;Sign up&quot; above and use your real email.
+          New users: sign up with a username or email (no verification required).
         </p>
       </motion.div>
     </div>
