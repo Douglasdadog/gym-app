@@ -1,17 +1,11 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { Calendar } from "lucide-react";
 import Link from "next/link";
 
 export function BookingCard() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.6 }}
-      className="glass rounded-2xl p-6 col-span-2 glow-cyan transition-shadow duration-300"
-    >
+    <div className="glass rounded-2xl p-6 col-span-2 glow-cyan transition-shadow duration-300 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Calendar className="w-5 h-5 text-accent-cyan" />
@@ -35,6 +29,6 @@ export function BookingCard() {
       >
         Book Trainer
       </Link>
-    </motion.div>
+    </div>
   );
 }

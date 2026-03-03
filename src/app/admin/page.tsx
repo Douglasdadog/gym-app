@@ -57,8 +57,8 @@ export default function AdminOverviewPage() {
       const { data: memberships } = await supabase
         .from("memberships")
         .select("price, status");
-      const activeMemberships = memberships?.filter((m) => m.status === "active") ?? [];
-      const totalRevenue = activeMemberships.reduce((s, m) => s + (m.price ?? 0), 0);
+      const activeMemberships = memberships?.filter((m: { status: string }) => m.status === "active") ?? [];
+      const totalRevenue = activeMemberships.reduce((s: number, m: { price?: number }) => s + (m.price ?? 0), 0);
 
       // Today's PT bookings
       const { count } = await supabase
@@ -72,7 +72,7 @@ export default function AdminOverviewPage() {
         .from("memberships")
         .select("status");
       const total = allMembers?.length ?? 0;
-      const cancelled = allMembers?.filter((m) => m.status === "cancelled").length ?? 0;
+      const cancelled = allMembers?.filter((m: { status: string }) => m.status === "cancelled").length ?? 0;
       const churnRate = total > 0 ? Math.round((cancelled / total) * 100) : 0;
 
       setKpis({
@@ -97,8 +97,8 @@ export default function AdminOverviewPage() {
 
     const channel = supabase
       .channel("admin_gym_status")
-      .on("postgres_changes", { event: "*", schema: "public", table: "gym_status" }, (payload) => {
-        setOccupancy(payload.new as GymStatus);
+      .on("postgres_changes", { event: "*", schema: "public", table: "gym_status" }, (payload: { new: GymStatus }) => {
+        setOccupancy(payload.new);
       })
       .subscribe();
 

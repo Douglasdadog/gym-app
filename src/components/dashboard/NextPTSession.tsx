@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Calendar, MapPin, XCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { format } from "date-fns";
@@ -61,24 +60,14 @@ export function NextPTSession() {
 
   if (loading) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="glass rounded-2xl p-6 col-span-2 md:col-span-1 min-h-[180px] flex items-center justify-center"
-      >
+      <div className="glass rounded-2xl p-6 col-span-2 md:col-span-1 min-h-[180px] flex items-center justify-center animate-fade-in">
         <div className="animate-pulse text-accent-cyan/60">Loading...</div>
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.2 }}
-      className="glass rounded-2xl p-6 col-span-2 md:col-span-1 glow-cyan transition-shadow duration-300"
-    >
+    <div className="glass rounded-2xl p-6 col-span-2 md:col-span-1 glow-cyan transition-shadow duration-300 animate-fade-in">
       <div className="flex items-center gap-2 mb-4">
         <Calendar className="w-5 h-5 text-accent-cyan" />
         <h3 className="font-semibold text-sm uppercase tracking-wider text-accent-cyan/90">
@@ -112,6 +101,6 @@ export function NextPTSession() {
       ) : (
         <p className="text-white/50 text-sm">No upcoming sessions. Book one!</p>
       )}
-    </motion.div>
+    </div>
   );
 }

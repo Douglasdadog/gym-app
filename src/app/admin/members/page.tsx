@@ -40,15 +40,15 @@ export default function AdminMembersPage() {
         return;
       }
 
-      const userIds = Array.from(new Set(memberships.map((m) => m.user_id)));
+      const userIds = Array.from(new Set(memberships.map((m: { user_id: string }) => m.user_id)));
       const { data: profiles } = await supabase
         .from("profiles")
         .select("id, email, full_name")
         .in("id", userIds);
 
-      const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
+      const profileMap = new Map((profiles ?? []).map((p: Profile) => [p.id, p]));
 
-      const rows: MemberRow[] = memberships.map((m) => {
+      const rows: MemberRow[] = memberships.map((m: { id: string; user_id: string; type: string; status: string; created_at: string }) => {
         const p = profileMap.get(m.user_id) as Profile | undefined;
         return {
           id: m.id,

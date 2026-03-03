@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Users, LogIn, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { GymStatus } from "@/types/database";
@@ -15,9 +14,22 @@ export function OccupancyGauge() {
   const supabase = createClient();
 
   const fetchCheckInStatus = async () => {
-    const res = await fetch("/api/gym/status");
-    const data = await res.json();
-    setIsCheckedIn(data.isCheckedIn ?? false);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setIsCheckedIn(false);
+        return;
+      }
+      const { data } = await supabase
+        .from("gym_check_ins")
+        .select("id")
+        .eq("user_id", user.id)
+        .is("checked_out_at", null)
+        .maybeSingle();
+      setIsCheckedIn(!!data);
+    } catch {
+      setIsCheckedIn(false);
+    }
   };
 
   useEffect(() => {
@@ -29,51 +41,64 @@ export function OccupancyGauge() {
     fetchStatus();
     fetchCheckInStatus();
 
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      fetchCheckInStatus();
+    });
+
     const channel = supabase
       .channel("gym_status")
-      .on("postgres_changes", { event: "*", schema: "public", table: "gym_status" }, (payload) => {
-        setStatus(payload.new as GymStatus);
+      .on("postgres_changes", { event: "*", schema: "public", table: "gym_status" }, (payload: { new: GymStatus }) => {
+        setStatus(payload.new);
       })
       .subscribe();
 
     return () => {
+      subscription.unsubscribe();
       supabase.removeChannel(channel);
     };
   }, [supabase]);
 
   const checkIn = async () => {
     setError(null);
-    const res = await fetch("/api/gym/check-in", { method: "POST" });
+    const res = await fetch("/api/gym/check-in", { method: "POST", credentials: "include" });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error || "Failed to check in");
+      if (data.error?.includes("Already checked in")) {
+        setIsCheckedIn(true);
+        setError(null);
+      } else {
+        setError(data.error || "Failed to check in");
+      }
       return;
     }
     setIsCheckedIn(true);
     setStatus((s) => s ? { ...s, current_occupancy: data.current_occupancy } : null);
+    fetchCheckInStatus();
   };
 
   const checkOut = async () => {
     setError(null);
-    const res = await fetch("/api/gym/check-out", { method: "POST" });
+    const res = await fetch("/api/gym/check-out", { method: "POST", credentials: "include" });
     const data = await res.json();
     if (!res.ok) {
-      setError(data.error || "Failed to check out");
+      if (data.error?.includes("Not checked in")) {
+        setIsCheckedIn(false);
+        setError(null);
+      } else {
+        setError(data.error || "Failed to check out");
+      }
       return;
     }
     setIsCheckedIn(false);
     setStatus((s) => s ? { ...s, current_occupancy: data.current_occupancy } : null);
+    fetchCheckInStatus();
   };
 
   if (loading || !status) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass rounded-2xl p-6 col-span-2 md:col-span-1 min-h-[200px] flex items-center justify-center"
-      >
+      <div className="glass rounded-2xl p-6 col-span-2 md:col-span-1 min-h-[200px] flex items-center justify-center animate-fade-in">
         <div className="animate-pulse text-accent-cyan/60">Loading...</div>
-      </motion.div>
+      </div>
     );
   }
 
@@ -81,12 +106,7 @@ export function OccupancyGauge() {
   const color = pct >= 80 ? "#ef4444" : pct >= 50 ? "#CCFF00" : "#00FFFF";
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.1 }}
-      className="glass rounded-2xl p-6 col-span-2 md:col-span-1 glow-lime transition-shadow duration-300"
-    >
+    <div className="glass rounded-2xl p-6 col-span-2 md:col-span-1 glow-lime transition-shadow duration-300 animate-fade-in">
       <div className="flex items-center gap-2 mb-4">
         <Users className="w-5 h-5 text-accent-lime" />
         <h3 className="font-semibold text-sm uppercase tracking-wider text-accent-lime/90">
@@ -134,6 +154,6 @@ export function OccupancyGauge() {
           <LogOut className="w-4 h-4" /> Check Out
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 }

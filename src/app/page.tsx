@@ -37,7 +37,7 @@ export default function HomePage() {
       setLoading(false);
     };
     check();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: string, session: { user?: unknown } | null) => {
       if (session?.user) {
         try {
           const res = await fetch("/api/auth/role", { credentials: "include" });

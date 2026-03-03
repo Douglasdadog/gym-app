@@ -8,6 +8,8 @@ export interface Profile {
   id: string;
   email: string;
   full_name: string | null;
+  username?: string | null;
+  phone_number?: string | null;
   membership_tier: MembershipTier;
   role?: UserRole;
   current_weight: number | null;

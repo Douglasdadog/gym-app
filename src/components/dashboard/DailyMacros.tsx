@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
 import { Flame, Beef, Wheat, Droplets, RotateCcw, Undo2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import type { NutritionLog } from "@/types/database";
@@ -82,12 +81,7 @@ export function DailyMacros({ refreshTrigger = 0 }: { refreshTrigger?: number })
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.3 }}
-      className="glass rounded-2xl p-6 col-span-2 glow-lime transition-shadow duration-300"
-    >
+    <div className="glass rounded-2xl p-6 col-span-2 glow-lime transition-shadow duration-300 animate-fade-in">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Flame className="w-5 h-5 text-accent-lime" />
@@ -134,6 +128,6 @@ export function DailyMacros({ refreshTrigger = 0 }: { refreshTrigger?: number })
           )}
         </>
       )}
-    </motion.div>
+    </div>
   );
 }

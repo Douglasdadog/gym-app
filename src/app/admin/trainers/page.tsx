@@ -41,12 +41,12 @@ export default function AdminTrainersPage() {
         .order("time_slot");
 
       const { data: trainers } = await supabase.from("trainers").select("*");
-      const trainerMap = new Map((trainers ?? []).map((t) => [t.id, t]));
+      const trainerMap = new Map((trainers ?? []).map((t: Trainer) => [t.id, t]));
 
-      const withTrainers: BookingWithTrainer[] = (bookings ?? []).map((b) => ({
+      const withTrainers: BookingWithTrainer[] = (bookings ?? []).map((b: { trainer_id: string } & Record<string, unknown>) => ({
         ...b,
         trainer: trainerMap.get(b.trainer_id)!,
-      })).filter((b) => b.trainer);
+      })).filter((b: BookingWithTrainer) => b.trainer);
 
       setTodayBookings(withTrainers);
 
@@ -57,7 +57,7 @@ export default function AdminTrainersPage() {
         .eq("status", "completed");
 
       const payoutMap = new Map<string, { gym: number; home: number }>();
-      (completed ?? []).forEach((b) => {
+      (completed ?? []).forEach((b: { trainer_id: string; location_type: string }) => {
         const t = trainerMap.get(b.trainer_id);
         if (!t) return;
         const cur = payoutMap.get(b.trainer_id) ?? { gym: 0, home: 0 };
@@ -70,7 +70,7 @@ export default function AdminTrainersPage() {
         }
       });
 
-      const payouts: TrainerPayout[] = (trainers ?? []).map((t) => {
+      const payouts: TrainerPayout[] = (trainers ?? []).map((t: Trainer) => {
         const counts = payoutMap.get(t.id) ?? { gym: 0, home: 0 };
         const earnings = counts.gym * t.hourly_rate_gym + counts.home * t.hourly_rate_home;
         return {
@@ -80,7 +80,7 @@ export default function AdminTrainersPage() {
           homeSessions: counts.home,
           estimatedEarnings: earnings,
         };
-      }).filter((p) => p.completedSessions > 0);
+      }).filter((p: TrainerPayout) => p.completedSessions > 0);
 
       setTrainerPayouts(payouts);
       setLoading(false);

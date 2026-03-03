@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
 import Link from "next/link";
 import { Dumbbell, LayoutDashboard, Calendar, Utensils, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -40,8 +39,27 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
-        <div className="animate-pulse text-accent-cyan">Loading...</div>
+      <div className="min-h-screen bg-[#000000]">
+        <header className="border-b border-white/10 sticky top-0 z-50 glass">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+            <Link href="/dashboard" className="flex items-center gap-2 opacity-80">
+              <Dumbbell className="w-8 h-8 text-accent-lime" />
+              <span className="font-bold text-xl tracking-tight">CYBER-GYM</span>
+            </Link>
+            <div className="h-4 w-24 bg-white/10 rounded animate-pulse" />
+          </div>
+        </header>
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+          <div className="h-9 w-48 bg-white/10 rounded mb-8 animate-pulse" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="glass rounded-2xl p-6 min-h-[180px] animate-pulse">
+                <div className="h-5 w-24 bg-white/10 rounded mb-4" />
+                <div className="h-12 w-full bg-white/10 rounded" />
+              </div>
+            ))}
+          </div>
+        </main>
       </div>
     );
   }
@@ -84,13 +102,9 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-        <motion.h1
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-2xl sm:text-3xl font-bold mb-8"
-        >
+        <h1 className="text-2xl sm:text-3xl font-bold mb-8 animate-fade-in">
           Member Dashboard
-        </motion.h1>
+        </h1>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 auto-rows-auto">
           <OccupancyGauge />

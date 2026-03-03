@@ -55,8 +55,11 @@ export default function AdminLayout({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
-        <div className="animate-pulse text-accent-lime">Loading...</div>
+      <div className="min-h-screen bg-[#000000] flex">
+        <aside className="w-64 fixed left-0 top-0 h-screen glass border-r border-white/10 animate-pulse" />
+        <main className="flex-1 ml-64 flex items-center justify-center">
+          <div className="animate-pulse text-accent-lime">Loading...</div>
+        </main>
       </div>
     );
   }

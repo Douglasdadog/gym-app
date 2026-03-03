@@ -8,8 +8,11 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function AuthPage() {
+  const [fullName, setFullName] = useState("");
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
@@ -49,7 +52,9 @@ export default function AuthPage() {
   }, [supabase, router, searchParams]);
 
   const getEmail = () => {
+    if (isSignUp && email.trim()) return email.trim().toLowerCase();
     const v = username.trim().toLowerCase();
+    if (v.includes("@")) return v;
     if (v === "user") return "user@cybergym.demo";
     if (v === "admin") return "admin@cybergym.demo";
     return `${v}@cybergym.local`;
@@ -59,15 +64,20 @@ export default function AuthPage() {
     e.preventDefault();
     setLoading(true);
     setMessage("");
-    const email = getEmail();
+    const authEmail = getEmail();
     const redirectTo = searchParams.get("redirect") || "/dashboard";
     try {
       if (isSignUp) {
-        const displayName = username.trim();
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: authEmail,
           password,
-          options: { data: { full_name: displayName || email } },
+          options: {
+            data: {
+              full_name: fullName.trim() || undefined,
+              username: username.trim() || undefined,
+              phone_number: phoneNumber.trim() || undefined,
+            },
+          },
         });
         if (error) throw error;
         if (data.session) {
@@ -86,10 +96,10 @@ export default function AuthPage() {
           }
           router.refresh();
         } else {
-          setMessage("Sign up complete! Please sign in with your username.");
+          setMessage("Sign up complete! Please sign in with your email.");
         }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password });
         if (error) throw error;
         let role = "user";
         try {
@@ -136,15 +146,56 @@ export default function AuthPage() {
           <span className="font-bold text-2xl tracking-tight">CYBER-GYM</span>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="Username"
-            required
-            autoComplete="username"
-            className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
-          />
+          {isSignUp && (
+            <>
+              <input
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Full name"
+                required
+                autoComplete="name"
+                className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
+              />
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="Username"
+                required
+                autoComplete="username"
+                className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+                required
+                autoComplete="email"
+                className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
+              />
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="Phone number"
+                autoComplete="tel"
+                className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
+              />
+            </>
+          )}
+          {!isSignUp && (
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Username or email"
+              required
+              autoComplete="username"
+              className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
+            />
+          )}
           <input
             type="password"
             value={password}
@@ -152,6 +203,7 @@ export default function AuthPage() {
             placeholder="Password"
             required
             minLength={6}
+            autoComplete={isSignUp ? "new-password" : "current-password"}
             className="w-full px-4 py-3 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
           />
           <button
@@ -174,10 +226,7 @@ export default function AuthPage() {
           You need an account to book trainers and access your dashboard.
         </p>
         <p className="mt-3 text-center text-xs text-accent-cyan/70">
-          Demo only: user / user123 &nbsp;|&nbsp; admin / admin123
-        </p>
-        <p className="mt-1 text-center text-xs text-white/30">
-          New users: sign up with a username and password.
+          Demo: user / user123 &nbsp;|&nbsp; admin / admin123
         </p>
       </motion.div>
     </div>

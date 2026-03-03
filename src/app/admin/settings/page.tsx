@@ -1,9 +1,33 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { Settings as SettingsIcon } from "lucide-react";
+import { Settings as SettingsIcon, RotateCcw, Loader2 } from "lucide-react";
 
 export default function AdminSettingsPage() {
+  const [resetting, setResetting] = useState(false);
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
+
+  const handleResetGym = async () => {
+    if (resetting) return;
+    if (!confirm("Reset all check-ins and set occupancy to 0? This will sign everyone out of the gym.")) return;
+    setResetting(true);
+    setResetMessage(null);
+    try {
+      const res = await fetch("/api/admin/reset-gym", { method: "POST", credentials: "include" });
+      const data = await res.json();
+      if (res.ok) {
+        setResetMessage("Gym reset successfully. All accounts synced to zero.");
+      } else {
+        setResetMessage(data.error || "Failed to reset");
+      }
+    } catch {
+      setResetMessage("Request failed");
+    } finally {
+      setResetting(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <motion.h1
@@ -25,9 +49,35 @@ export default function AdminSettingsPage() {
             Admin Configuration
           </h3>
         </div>
-        <p className="text-white/70 text-sm">
+        <p className="text-white/70 text-sm mb-6">
           Admin settings placeholder. Configure gym capacity, business hours, notification preferences, and more.
         </p>
+
+        <div className="pt-6 border-t border-white/10">
+          <h4 className="font-medium text-sm text-white/90 mb-2">Gym Occupancy</h4>
+          <p className="text-sm text-white/60 mb-4">
+            Reset all check-ins and set live occupancy to zero. Use this to fix sync issues or start fresh.
+            If you get &quot;Forbidden&quot;, run this in Supabase SQL Editor: <code className="text-xs bg-white/10 px-1 rounded">UPDATE profiles SET role = &apos;admin&apos; WHERE email = &apos;YOUR_EMAIL&apos;;</code>
+          </p>
+          <button
+            onClick={handleResetGym}
+            disabled={resetting}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border border-amber-500/30 disabled:opacity-50 transition-colors"
+          >
+            {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
+            Reset Gym to Zero
+          </button>
+          {resetMessage && (
+            <p className={`mt-3 text-sm ${resetMessage.includes("success") ? "text-accent-lime" : "text-red-400"}`}>
+              {resetMessage}
+            </p>
+          )}
+          {resetMessage?.includes("Forbidden") && (
+            <p className="mt-2 text-xs text-white/50">
+              In Supabase Dashboard → SQL Editor, run: <code className="bg-white/10 px-1 rounded">UPDATE profiles SET role = &apos;admin&apos; WHERE email = &apos;your@email.com&apos;;</code> (use your actual email)
+            </p>
+          )}
+        </div>
       </motion.div>
     </div>
   );

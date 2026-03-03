@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { Send, Utensils } from "lucide-react";
 
 export function NutritionCoach({ onLogAdded }: { onLogAdded?: () => void }) {
@@ -38,12 +37,7 @@ export function NutritionCoach({ onLogAdded }: { onLogAdded?: () => void }) {
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: 0.5 }}
-      className="glass rounded-2xl p-6 col-span-2 glow-lime transition-shadow duration-300"
-    >
+    <div className="glass rounded-2xl p-6 col-span-2 glow-lime transition-shadow duration-300 animate-fade-in">
       <div className="flex items-center gap-2 mb-4">
         <Utensils className="w-5 h-5 text-accent-lime" />
         <h3 className="font-semibold text-sm uppercase tracking-wider text-accent-lime/90">
@@ -71,17 +65,13 @@ export function NutritionCoach({ onLogAdded }: { onLogAdded?: () => void }) {
         <p className="mt-4 text-sm text-red-400">{error}</p>
       )}
       {result && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="mt-4 flex gap-4 text-sm"
-        >
+        <div className="mt-4 flex gap-4 text-sm animate-fade-in">
           <span className="text-accent-lime">Cal: {result.calories}</span>
           <span className="text-accent-cyan">P: {result.protein}g</span>
           <span className="text-amber-400">C: {result.carbs}g</span>
           <span className="text-orange-400">F: {result.fats}g</span>
-        </motion.div>
+        </div>
       )}
-    </motion.div>
+    </div>
   );
 }
