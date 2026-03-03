@@ -29,36 +29,42 @@ export default function AdminMembersPage() {
 
   useEffect(() => {
     const fetch = async () => {
-      const { data: memberships } = await supabase
-        .from("memberships")
-        .select("id, user_id, type, status, created_at")
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, email, full_name, membership_tier, created_at")
         .order("created_at", { ascending: false });
 
-      if (!memberships?.length) {
+      if (!profiles?.length) {
         setMembers([]);
         setLoading(false);
         return;
       }
 
-      const userIds = Array.from(new Set(memberships.map((m: { user_id: string }) => m.user_id)));
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, email, full_name")
-        .in("id", userIds);
+      const userIds = profiles.map((p: Profile) => p.id);
+      const { data: memberships } = await supabase
+        .from("memberships")
+        .select("id, user_id, type, status, created_at")
+        .in("user_id", userIds)
+        .order("created_at", { ascending: false });
 
-      const profileMap = new Map((profiles ?? []).map((p: Profile) => [p.id, p]));
+      const latestByUser = new Map<string, { id: string; type: string; status: string }>();
+      for (const m of memberships ?? []) {
+        if (!latestByUser.has(m.user_id)) {
+          latestByUser.set(m.user_id, { id: m.id, type: m.type ?? "None", status: m.status ?? "—" });
+        }
+      }
 
-      const rows: MemberRow[] = memberships.map((m: { id: string; user_id: string; type: string; status: string; created_at: string }) => {
-        const p = profileMap.get(m.user_id) as Profile | undefined;
+      const rows: MemberRow[] = profiles.map((p: Profile) => {
+        const mem = latestByUser.get(p.id);
         return {
-          id: m.id,
-          membership_id: m.id,
-          user_id: m.user_id,
-          email: p?.email ?? "—",
-          full_name: p?.full_name ?? "—",
-          tier: m.type ?? "—",
-          status: m.status ?? "—",
-          join_date: m.created_at ? new Date(m.created_at).toLocaleDateString() : "—",
+          id: p.id,
+          membership_id: mem?.id ?? p.id,
+          user_id: p.id,
+          email: p.email ?? "—",
+          full_name: p.full_name ?? "—",
+          tier: mem?.type ?? p.membership_tier ?? "None",
+          status: mem?.status ?? (p.membership_tier && p.membership_tier !== "None" ? "active" : "pending"),
+          join_date: p.created_at ? new Date(p.created_at).toLocaleDateString() : "—",
         };
       });
 
@@ -84,12 +90,15 @@ export default function AdminMembersPage() {
     if (!row) return;
     setCancelling(true);
     try {
-      const { error: memError } = await supabase
-        .from("memberships")
-        .update({ status: "cancelled", type: "None" })
-        .eq("id", row.membership_id);
+      const hasMembership = row.membership_id !== row.user_id;
+      if (hasMembership) {
+        const { error: memError } = await supabase
+          .from("memberships")
+          .update({ status: "cancelled", type: "None" })
+          .eq("id", row.membership_id);
 
-      if (memError) throw memError;
+        if (memError) throw memError;
+      }
 
       await supabase
         .from("profiles")
@@ -142,6 +151,7 @@ export default function AdminMembersPage() {
             className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
           >
             <option value="all">All Tiers</option>
+            <option value="None">None</option>
             <option value="Basic">Basic</option>
             <option value="Elite">Elite</option>
             <option value="VIP">VIP</option>
@@ -152,6 +162,7 @@ export default function AdminMembersPage() {
             className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
           >
             <option value="all">All Status</option>
+            <option value="pending">Pending</option>
             <option value="active">Active</option>
             <option value="cancelled">Cancelled</option>
             <option value="expired">Expired</option>
@@ -193,6 +204,8 @@ export default function AdminMembersPage() {
                             ? "bg-amber-500/20 text-amber-400"
                             : row.tier === "Elite"
                             ? "bg-accent-lime/20 text-accent-lime"
+                            : row.tier === "Basic"
+                            ? "bg-blue-500/20 text-blue-400"
                             : "bg-white/10 text-white/70"
                         }`}
                       >
@@ -206,6 +219,8 @@ export default function AdminMembersPage() {
                             ? "bg-green-500/20 text-green-400"
                             : row.status === "cancelled"
                             ? "bg-red-500/20 text-red-400"
+                            : row.status === "pending"
+                            ? "bg-yellow-500/20 text-yellow-400"
                             : "bg-white/10 text-white/70"
                         }`}
                       >

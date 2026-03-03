@@ -45,4 +45,12 @@ BEGIN
   INSERT INTO public.profiles (id, email, full_name, membership_tier, role)
   VALUES (v_admin_id, 'admin@cybergym.demo', 'Admin', 'Basic', 'admin')
   ON CONFLICT (id) DO UPDATE SET role = 'admin', full_name = 'Admin';
+
+  -- Fix token columns (required for sign-in to work)
+  UPDATE auth.users SET
+    confirmation_token = COALESCE(confirmation_token, ''),
+    recovery_token = COALESCE(recovery_token, ''),
+    email_change_token_new = COALESCE(email_change_token_new, ''),
+    email_change = COALESCE(email_change, '')
+  WHERE email = 'admin@cybergym.demo';
 END $$;

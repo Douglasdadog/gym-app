@@ -90,8 +90,10 @@ export function OccupancyGauge() {
       return;
     }
     setIsCheckedIn(false);
-    setStatus((s) => s ? { ...s, current_occupancy: data.current_occupancy } : null);
+    setStatus((s) => s ? { ...s, current_occupancy: data.current_occupancy ?? Math.max((s.current_occupancy ?? 1) - 1, 0) } : null);
     fetchCheckInStatus();
+    const { data: fresh } = await supabase.from("gym_status").select("*").single();
+    if (fresh) setStatus(fresh);
   };
 
   if (loading || !status) {

@@ -57,7 +57,6 @@ export default function AdminSettingsPage() {
           <h4 className="font-medium text-sm text-white/90 mb-2">Gym Occupancy</h4>
           <p className="text-sm text-white/60 mb-4">
             Reset all check-ins and set live occupancy to zero. Use this to fix sync issues or start fresh.
-            If you get &quot;Forbidden&quot;, run this in Supabase SQL Editor: <code className="text-xs bg-white/10 px-1 rounded">UPDATE profiles SET role = &apos;admin&apos; WHERE email = &apos;YOUR_EMAIL&apos;;</code>
           </p>
           <button
             onClick={handleResetGym}
@@ -70,11 +69,6 @@ export default function AdminSettingsPage() {
           {resetMessage && (
             <p className={`mt-3 text-sm ${resetMessage.includes("success") ? "text-accent-lime" : "text-red-400"}`}>
               {resetMessage}
-            </p>
-          )}
-          {resetMessage?.includes("Forbidden") && (
-            <p className="mt-2 text-xs text-white/50">
-              In Supabase Dashboard → SQL Editor, run: <code className="bg-white/10 px-1 rounded">UPDATE profiles SET role = &apos;admin&apos; WHERE email = &apos;your@email.com&apos;;</code> (use your actual email)
             </p>
           )}
         </div>

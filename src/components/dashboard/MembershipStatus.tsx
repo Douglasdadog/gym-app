@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Crown, Sparkles, ChevronRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -16,34 +16,54 @@ const tierConfig = {
 export function MembershipStatus() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const userIdRef = useRef<string | null>(null);
 
   const supabase = createClient();
 
-  useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setLoading(false);
-          return;
-        }
-        const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-        if (error) {
-          console.error("MembershipStatus fetch error:", error);
-          setProfile({ id: user.id, email: user.email ?? "", full_name: null, membership_tier: "None", current_weight: null, goal_weight: null, created_at: "", updated_at: "" } as Profile);
-        } else if (data) {
-          setProfile(data as Profile);
-        } else {
-          setProfile({ id: user.id, email: user.email ?? "", full_name: null, membership_tier: "None", current_weight: null, goal_weight: null, created_at: "", updated_at: "" } as Profile);
-        }
-      } catch (e) {
-        console.error("MembershipStatus error:", e);
-      } finally {
+  const fetchProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
         setLoading(false);
+        return;
       }
-    };
+      userIdRef.current = user.id;
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
+      if (error) {
+        console.error("MembershipStatus fetch error:", error);
+        setProfile({ id: user.id, email: user.email ?? "", full_name: null, membership_tier: "None", current_weight: null, goal_weight: null, created_at: "", updated_at: "" } as Profile);
+      } else if (data) {
+        setProfile(data as Profile);
+      } else {
+        setProfile({ id: user.id, email: user.email ?? "", full_name: null, membership_tier: "None", current_weight: null, goal_weight: null, created_at: "", updated_at: "" } as Profile);
+      }
+    } catch (e) {
+      console.error("MembershipStatus error:", e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchProfile();
-  }, []);
+
+    const channel = supabase
+      .channel("profile_changes")
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "profiles" }, (payload: { new: Profile }) => {
+        if (userIdRef.current && (payload.new as Profile).id === userIdRef.current) {
+          setProfile(payload.new as Profile);
+        }
+      })
+      .subscribe();
+
+    const onFocus = () => fetchProfile();
+    window.addEventListener("focus", onFocus);
+
+    return () => {
+      supabase.removeChannel(channel);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [supabase]);
 
   if (loading) {
     return (

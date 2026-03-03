@@ -46,7 +46,10 @@ export default function MembershipPage() {
         .update({ membership_tier: tierId })
         .eq("id", profile.id);
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error("Profile update error:", profileError);
+        throw profileError;
+      }
 
       const price = TIERS.find((t) => t.id === tierId)?.price ?? 0;
       const { error: membershipError } = await supabase.from("memberships").insert({
@@ -57,10 +60,13 @@ export default function MembershipPage() {
         status: "active",
       });
 
-      if (membershipError) throw membershipError;
+      if (membershipError) {
+        console.error("Membership insert error:", membershipError);
+        throw membershipError;
+      }
 
       setProfile((p) => (p ? { ...p, membership_tier: tierId as Profile["membership_tier"] } : null));
-      setMessage(`Successfully upgraded to ${tierId}!`);
+      setMessage(`Successfully upgraded to ${tierId}! Your dashboard will update shortly.`);
     } catch (err: unknown) {
       const msg = err && typeof err === "object" && "message" in err ? String((err as { message: string }).message) : "Failed to purchase";
       setMessage(msg);
