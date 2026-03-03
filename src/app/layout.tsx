@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Cyber-Gym | Premium Fitness Experience",
   description: "Train smarter. Live stronger. AI nutrition coaching, live gym occupancy, and personal training at the gym or your home.",
