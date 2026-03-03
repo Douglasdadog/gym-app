@@ -4,8 +4,6 @@ import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, XCircle, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import type { Profile } from "@/types/database";
-
 interface MemberRow {
   id: string;
   user_id: string;
@@ -29,50 +27,23 @@ export default function AdminMembersPage() {
 
   useEffect(() => {
     const fetch = async () => {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, email, full_name, membership_tier, created_at")
-        .order("created_at", { ascending: false });
-
-      if (!profiles?.length) {
-        setMembers([]);
-        setLoading(false);
-        return;
-      }
-
-      const userIds = profiles.map((p: Profile) => p.id);
-      const { data: memberships } = await supabase
-        .from("memberships")
-        .select("id, user_id, type, status, created_at")
-        .in("user_id", userIds)
-        .order("created_at", { ascending: false });
-
-      const latestByUser = new Map<string, { id: string; type: string; status: string }>();
-      for (const m of memberships ?? []) {
-        if (!latestByUser.has(m.user_id)) {
-          latestByUser.set(m.user_id, { id: m.id, type: m.type ?? "None", status: m.status ?? "—" });
+      try {
+        const res = await fetch("/api/admin/members", { credentials: "include" });
+        const data = await res.json();
+        if (!res.ok) {
+          setMembers([]);
+          setLoading(false);
+          return;
         }
+        setMembers(data.members ?? []);
+      } catch {
+        setMembers([]);
+      } finally {
+        setLoading(false);
       }
-
-      const rows: MemberRow[] = profiles.map((p: Profile) => {
-        const mem = latestByUser.get(p.id);
-        return {
-          id: p.id,
-          membership_id: mem?.id ?? p.id,
-          user_id: p.id,
-          email: p.email ?? "—",
-          full_name: p.full_name ?? "—",
-          tier: mem?.type ?? p.membership_tier ?? "None",
-          status: mem?.status ?? (p.membership_tier && p.membership_tier !== "None" ? "active" : "pending"),
-          join_date: p.created_at ? new Date(p.created_at).toLocaleDateString() : "—",
-        };
-      });
-
-      setMembers(rows);
-      setLoading(false);
     };
     fetch();
-  }, [supabase]);
+  }, []);
 
   const filtered = useMemo(() => {
     return members.filter((m) => {
