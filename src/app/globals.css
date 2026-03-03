@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #000000;
+  --foreground: #e5e5e5;
+  --accent-lime: #CCFF00;
+  --accent-cyan: #00FFFF;
+  --glass-bg: rgba(255, 255, 255, 0.03);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+  }
+  .glow-lime:hover {
+    box-shadow: 0 0 20px rgba(204, 255, 0, 0.3);
+  }
+  .glow-cyan:hover {
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+  }
+}
+
+/* react-day-picker dark theme overrides - compact */
+.rdp-root {
+  --rdp-accent-color: #CCFF00;
+  --rdp-accent-background-color: #CCFF00;
+  --rdp-disabled-opacity: 0.35;
+  --rdp-outside-opacity: 0.4;
+  --rdp-day-height: 28px;
+  --rdp-day-width: 28px;
+  --rdp-day_button-height: 26px;
+  --rdp-day_button-width: 26px;
+}
+.rdp-root .rdp-day_button {
+  color: rgba(255, 255, 255, 0.9);
+}
+.rdp-root .rdp-day_button:hover:not([disabled]) {
+  background: rgba(255, 255, 255, 0.1);
+}
+.rdp-root .rdp-selected .rdp-day_button {
+  background-color: #CCFF00 !important;
+  color: #000 !important;
+  border-radius: 9999px !important;
+}
+.rdp-root .rdp-disabled .rdp-day_button {
+  filter: grayscale(0.6);
+}
+.rdp-root .rdp-weekday {
+  color: rgba(255, 255, 255, 0.5);
+}
+.rdp-root .rdp-caption_label {
+  color: rgba(255, 255, 255, 0.9);
+}
+.rdp-root .rdp-chevron {
+  fill: rgba(255, 255, 255, 0.8);
+}
+
+/* Trainer list scrollbar - ultra-thin, Electric Lime thumb, transparent track */
+.trainer-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #CCFF00 transparent;
+}
+.trainer-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.trainer-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.trainer-scroll::-webkit-scrollbar-thumb {
+  background: #CCFF00;
+  border-radius: 2px;
+}
+.trainer-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(204, 255, 0, 0.8);
+}
+
+/* Animated mesh gradient for active trainer card */
+@keyframes mesh-gradient-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+.trainer-mesh-gradient {
+  background: linear-gradient(
+    135deg,
+    rgba(204, 255, 0, 0.15) 0%,
+    rgba(0, 255, 255, 0.08) 50%,
+    rgba(204, 255, 0, 0.1) 100%
+  );
+  background-size: 200% 200%;
+  animation: mesh-gradient-shift 4s ease infinite;
+}
