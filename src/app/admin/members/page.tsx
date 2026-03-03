@@ -26,7 +26,7 @@ export default function AdminMembersPage() {
   const supabase = createClient();
 
   useEffect(() => {
-    const fetch = async () => {
+    const loadMembers = async () => {
       try {
         const res = await fetch("/api/admin/members", { credentials: "include" });
         const data = await res.json();
@@ -42,7 +42,7 @@ export default function AdminMembersPage() {
         setLoading(false);
       }
     };
-    fetch();
+    loadMembers();
   }, []);
 
   const filtered = useMemo(() => {
