@@ -47,15 +47,39 @@ export async function GET() {
       }
     }
 
+    // Fallback: also read usernames from auth.users metadata, in case profiles.username
+    // was not backfilled by older migrations.
+    const usernameByEmail = new Map<string, string>();
+    try {
+      const { data: usersPage } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+      for (const u of usersPage?.users ?? []) {
+        const email = (u.email ?? "").toLowerCase();
+        const meta = (u.user_metadata || {}) as Record<string, unknown>;
+        const metaUsername = String(meta.username ?? "").trim();
+        if (email && metaUsername) {
+          usernameByEmail.set(email, metaUsername);
+        }
+      }
+    } catch (adminErr) {
+      console.error("Admin members: listUsers fallback error", adminErr);
+    }
+
     const members = profiles.map((p) => {
       const mem = latestByUser.get(p.id);
+      const profileUsername = (p as any).username as string | null | undefined;
+      const effectiveUsername =
+        profileUsername ??
+        (p.email ? usernameByEmail.get(p.email.toLowerCase()) ?? null : null);
       return {
         id: p.id,
         membership_id: mem?.id ?? p.id,
         user_id: p.id,
         email: p.email ?? "—",
         full_name: p.full_name ?? "—",
-        username: p.username ?? null,
+        username: effectiveUsername,
         tier: mem?.type ?? p.membership_tier ?? "None",
         status: mem?.status ?? (p.membership_tier && p.membership_tier !== "None" ? "active" : "pending"),
         join_date: p.created_at ? new Date(p.created_at).toLocaleDateString() : "—",
