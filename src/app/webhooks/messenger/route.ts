@@ -167,18 +167,11 @@ async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
   });
 }
 
-async function sendMessengerText(
-  recipientId: string,
-  text: string,
-  platform: "page" | "instagram",
-) {
-  const pageToken = process.env.META_PAGE_ACCESS_TOKEN;
-  const igToken = process.env.META_IG_ACCESS_TOKEN;
-  const token =
-    platform === "instagram" ? igToken ?? pageToken : pageToken ?? igToken;
-
+async function sendMessengerText(recipientId: string, text: string) {
+  // Use the Page access token for both Messenger and Instagram messaging.
+  const token = process.env.META_PAGE_ACCESS_TOKEN;
   if (!token) {
-    console.warn("No Meta token set; cannot reply");
+    console.warn("META_PAGE_ACCESS_TOKEN not set; cannot reply");
     return;
   }
 
@@ -313,11 +306,7 @@ export async function POST(request: Request) {
 
         await maybeInsertLeadFromMessages([...history, { role: "user", content: text }]);
 
-        await sendMessengerText(
-          senderId,
-          replyText,
-          body.object === "instagram" ? "instagram" : "page",
-        );
+        await sendMessengerText(senderId, replyText);
       }
     }
 
