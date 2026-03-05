@@ -149,10 +149,18 @@ async function sendMessengerText(recipientId: string, text: string) {
 async function handleFaqMessage(senderId: string, text: string) {
   const lower = text.toLowerCase();
 
+  if (lower === "hi" || lower === "hello" || lower.includes("hey")) {
+    await sendMessengerText(
+      senderId,
+      "Hey, I’m the Cyber-Gym assistant 👋 What are you looking for today – membership info, PT, or just checking things out?",
+    );
+    return;
+  }
+
   if (lower.includes("membership") || lower.includes("price") || lower.includes("plan")) {
     await sendMessengerText(
       senderId,
-      "We’ve got 3 main memberships:\nBasic – gym access + equipment\nElite – Basic + sauna, classes, priority booking\nVIP – Elite + home PT priority + unlimited AI coaching.",
+      "Quick rundown on memberships:\n• Basic – gym access + equipment\n• Elite – + sauna, classes, priority booking\n• VIP – + home PT priority + more support.",
     );
     return;
   }
@@ -188,7 +196,7 @@ async function handleFaqMessage(senderId: string, text: string) {
 
   await sendMessengerText(
     senderId,
-    "Got you. I can answer questions about memberships, PT, hours, or nutrition—and if you’d like us to contact you, I can also grab your details.",
+    "Got you. I can help with memberships, PT, hours, or nutrition. If you want us to reach out, just say you’d like to join or talk to a trainer.",
   );
 }
 
