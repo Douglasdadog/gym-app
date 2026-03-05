@@ -200,7 +200,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     console.log("Messenger webhook event", JSON.stringify(body, null, 2));
 
-    if (body.object !== "page" || !Array.isArray(body.entry)) {
+    if ((body.object !== "page" && body.object !== "instagram") || !Array.isArray(body.entry)) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
