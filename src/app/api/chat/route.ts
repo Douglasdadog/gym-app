@@ -70,8 +70,8 @@ async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
   const { error } = await supabaseAdmin.from("leads").insert({
     name: lead.name,
     email: lead.email,
-    phone: lead.phone,
-    interest: lead.interest,
+    phone: (lead.phone ?? "").trim(),
+    interest: lead.interest?.trim() || "Not specified",
     source: "web-chat",
     notes: "Captured via Apex Assistant conversational flow",
   });

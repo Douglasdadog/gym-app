@@ -41,12 +41,15 @@ async function insertLead(lead: {
     return;
   }
 
+  const safePhone = (lead.phone ?? "").trim();
+  const safeInterest = lead.interest?.trim() || "Not specified";
+
   const supabaseAdmin = createServiceClient(supabaseUrl, serviceKey);
   const { error } = await supabaseAdmin.from("leads").insert({
     name: lead.name,
     email: lead.email,
-    phone: lead.phone,
-    interest: lead.interest,
+    phone: safePhone,
+    interest: safeInterest,
     source: lead.source,
     notes: lead.notes ?? null,
   });
