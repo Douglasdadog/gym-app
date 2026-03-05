@@ -11,11 +11,13 @@ import {
   Settings,
   LogOut,
   UserPlus,
+  Calendar,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Business Overview", icon: LayoutDashboard },
+  { href: "/admin/schedule", label: "Schedule", icon: Calendar },
   { href: "/admin/members", label: "Member List", icon: Users },
   { href: "/admin/leads", label: "Leads", icon: UserPlus },
   { href: "/admin/trainers", label: "Trainer Payouts", icon: Wallet },

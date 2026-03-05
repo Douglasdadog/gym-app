@@ -122,12 +122,18 @@ export default function AdminLeadsPage() {
         credentials: "include",
         body: JSON.stringify(patch),
       });
-      if (!res.ok) throw new Error("Update failed");
-      const data = await res.json();
-      setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...data.lead } : l)));
-      if (patch.notes !== undefined) setNotesEditId(null);
-    } catch {
-      alert("Failed to update lead");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string }).error || "Update failed");
+      const leadData = (data as { lead?: LeadRow }).lead;
+      if (leadData) {
+        setLeads((prev) => prev.map((l) => (l.id === id ? { ...l, ...leadData } : l)));
+      }
+      if (patch.notes !== undefined) {
+        setNotesEditId(null);
+        setNotesValue("");
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update lead");
     } finally {
       setUpdatingId(null);
     }
@@ -321,52 +327,20 @@ export default function AdminLeadsPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="py-3 px-4 max-w-[160px]">
-                      {notesEditId === lead.id ? (
-                        <div className="flex flex-col gap-1">
-                          <textarea
-                            value={notesValue}
-                            onChange={(e) => setNotesValue(e.target.value)}
-                            rows={2}
-                            className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white placeholder-white/40 focus:outline-none focus:border-accent-lime/50 w-full"
-                            placeholder="Notes..."
-                          />
-                          <div className="flex gap-1">
-                            <button
-                              type="button"
-                              onClick={() => updateLead(lead.id, { notes: notesValue || null })}
-                              disabled={updatingId === lead.id}
-                              className="text-accent-lime text-xs hover:underline"
-                            >
-                              Save
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setNotesEditId(null);
-                                setNotesValue(lead.notes ?? "");
-                              }}
-                              className="text-white/50 text-xs hover:underline"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNotesEditId(lead.id);
-                            setNotesValue(lead.notes ?? "");
-                          }}
-                          className="text-left text-xs text-white/70 hover:text-white/90 flex items-center gap-1 w-full"
-                        >
-                          <StickyNote className="w-3 h-3 shrink-0" />
-                          <span className="truncate">
-                            {lead.notes ? (lead.notes.length > 40 ? `${lead.notes.slice(0, 40)}…` : lead.notes) : "Add note"}
-                          </span>
-                        </button>
-                      )}
+                    <td className="py-3 px-4 max-w-[180px]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNotesEditId(lead.id);
+                          setNotesValue(lead.notes ?? "");
+                        }}
+                        className="text-left text-xs text-white/70 hover:text-white/90 flex items-center gap-1 w-full min-h-[2rem]"
+                      >
+                        <StickyNote className="w-3 h-3 shrink-0" />
+                        <span className="truncate">
+                          {lead.notes ? (lead.notes.length > 50 ? `${lead.notes.slice(0, 50)}…` : lead.notes) : "Add note"}
+                        </span>
+                      </button>
                     </td>
                     <td className="py-3 px-4 text-white/70">
                       {lead.created_at ? new Date(lead.created_at).toLocaleString() : "—"}
@@ -463,28 +437,94 @@ export default function AdminLeadsPage() {
               )}
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2 items-center">
               <input
                 type="text"
                 value={newTaskTitle}
                 onChange={(e) => setNewTaskTitle(e.target.value)}
                 placeholder="Task or reminder..."
-                className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm placeholder-white/40 focus:outline-none focus:border-accent-lime/50"
+                className="flex-1 min-w-[140px] h-10 px-3 rounded-lg bg-white/5 border border-white/10 text-sm placeholder-white/40 focus:outline-none focus:border-accent-lime/50"
               />
               <input
                 type="datetime-local"
                 value={newTaskDue}
                 onChange={(e) => setNewTaskDue(e.target.value)}
-                className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
+                className="h-10 px-3 rounded-lg bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
               />
               <button
                 type="button"
                 onClick={addTask}
                 disabled={!newTaskTitle.trim()}
-                className="px-3 py-2 rounded-lg bg-accent-lime text-black font-medium text-sm hover:bg-accent-lime/90 disabled:opacity-50 flex items-center gap-1"
+                className="h-10 px-4 rounded-lg bg-accent-lime text-black font-medium text-sm hover:bg-accent-lime/90 disabled:opacity-50 flex items-center justify-center gap-1 shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 Add
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Notes modal — spacious dropdown for editing notes */}
+      {notesEditId && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => {
+            setNotesEditId(null);
+            setNotesValue("");
+          }}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            onClick={(e) => e.stopPropagation()}
+            className="glass rounded-2xl p-6 w-full max-w-lg border border-white/10 shadow-xl"
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <StickyNote className="w-5 h-5 text-accent-lime" />
+                Notes
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setNotesEditId(null);
+                  setNotesValue("");
+                }}
+                className="p-1 rounded-lg hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-white/50 mb-4">
+              Lead: {leads.find((l) => l.id === notesEditId)?.name || "Unknown"}
+            </p>
+            <textarea
+              value={notesValue}
+              onChange={(e) => setNotesValue(e.target.value)}
+              rows={8}
+              className="w-full min-h-[200px] px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white placeholder-white/40 focus:outline-none focus:border-accent-lime/50 resize-y"
+              placeholder="Type your notes here… follow-up, preferences, next steps, etc."
+              autoFocus
+            />
+            <div className="flex gap-3 mt-4 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setNotesEditId(null);
+                  setNotesValue("");
+                }}
+                className="px-4 py-2 rounded-lg border border-white/20 text-sm hover:bg-white/10"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => updateLead(notesEditId, { notes: notesValue.trim() || null })}
+                disabled={updatingId === notesEditId}
+                className="px-4 py-2 rounded-lg bg-accent-lime text-black font-medium text-sm hover:bg-accent-lime/90 disabled:opacity-50"
+              >
+                {updatingId === notesEditId ? "Saving…" : "Save"}
               </button>
             </div>
           </motion.div>
