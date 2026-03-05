@@ -73,6 +73,10 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 12. Copy the contents of `supabase/migrations/004_seed_sample_accounts.sql`.
 13. Paste and click **"Run"**.
 
+### Migration 15: Leads CRM (optional)
+
+14. If you use the **Admin → Leads** CRM (status, notes, tasks, assignments), run **`supabase/migrations/015_leads_crm.sql`** in a new query. This adds `status`, `assigned_to_id`, and `updated_at` to `leads`, and creates the `lead_tasks` table.
+
 ---
 
 ## Step 5: Enable Realtime for Gym Occupancy

@@ -28,20 +28,29 @@ export async function GET() {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data: leadsData, error: leadsError } = await supabaseAdmin
       .from("leads")
-      .select("id, created_at, name, email, phone, interest, source")
+      .select("id, created_at, updated_at, name, email, phone, interest, source, notes, status, assigned_to_id")
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Fetch leads error:", error);
+    if (leadsError) {
+      console.error("Fetch leads error:", leadsError);
       return NextResponse.json(
         { error: "Failed to fetch leads" },
         { status: 500 },
       );
     }
 
-    return NextResponse.json({ leads: data ?? [] });
+    const { data: staff } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("role", "admin")
+      .order("full_name");
+
+    return NextResponse.json({
+      leads: leadsData ?? [],
+      staff: staff ?? [],
+    });
   } catch (err) {
     console.error("Admin leads GET error:", err);
     return NextResponse.json(
