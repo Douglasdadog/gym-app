@@ -169,11 +169,21 @@ async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
   });
 }
 
-async function sendMessengerText(recipientId: string, text: string) {
-  // Use the Page access token for both Messenger and Instagram messaging.
-  const token = process.env.META_PAGE_ACCESS_TOKEN;
+async function sendMessengerText(
+  recipientId: string,
+  text: string,
+  platform: "page" | "instagram",
+) {
+  const pageToken = process.env.META_PAGE_ACCESS_TOKEN;
+  const igToken = process.env.META_IG_ACCESS_TOKEN;
+  const token = platform === "instagram" ? igToken : pageToken;
+
   if (!token) {
-    console.warn("META_PAGE_ACCESS_TOKEN not set; cannot reply");
+    console.warn(
+      platform === "instagram"
+        ? "META_IG_ACCESS_TOKEN not set; cannot reply to Instagram"
+        : "META_PAGE_ACCESS_TOKEN not set; cannot reply to Messenger",
+    );
     return;
   }
 
@@ -243,10 +253,7 @@ export async function POST(request: Request) {
           lower === "restart"
         ) {
           await clearConversation(senderId);
-          await sendMessengerText(
-            senderId,
-            "No worries, let’s start fresh. Are you mainly interested in memberships, personal training, or a gym tour?",
-          );
+          await sendMessengerText(senderId, "No worries, let’s start fresh. Are you mainly interested in memberships, personal training, or a gym tour?", body.object === "instagram" ? "instagram" : "page");
           continue;
         }
 
@@ -347,7 +354,11 @@ export async function POST(request: Request) {
 
         await maybeInsertLeadFromMessages([...history, { role: "user", content: text }]);
 
-        await sendMessengerText(senderId, replyText);
+        await sendMessengerText(
+          senderId,
+          replyText,
+          body.object === "instagram" ? "instagram" : "page",
+        );
       }
     }
 
