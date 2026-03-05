@@ -26,7 +26,7 @@ export async function GET() {
 
     const { data: profiles } = await supabaseAdmin
       .from("profiles")
-      .select("id, email, full_name, membership_tier, created_at")
+      .select("id, email, full_name, username, membership_tier, created_at")
       .order("created_at", { ascending: false });
 
     if (!profiles?.length) {
@@ -55,6 +55,7 @@ export async function GET() {
         user_id: p.id,
         email: p.email ?? "—",
         full_name: p.full_name ?? "—",
+        username: p.username ?? null,
         tier: mem?.type ?? p.membership_tier ?? "None",
         status: mem?.status ?? (p.membership_tier && p.membership_tier !== "None" ? "active" : "pending"),
         join_date: p.created_at ? new Date(p.created_at).toLocaleDateString() : "—",
