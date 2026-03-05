@@ -17,10 +17,16 @@ export function SupportChat() {
       id: 1,
       role: "assistant",
       content:
-        "Hey! I’m your Cyber-Gym assistant. Ask me about memberships, bookings, trainers, or how the app works.",
+        "Hey! I’m your Cyber-Gym assistant. Ask me about memberships, bookings, trainers, or how the app works. If you’d like the team to contact you, I can also collect your name, email, phone number, and what you’re interested in.",
     },
   ]);
   const [isSending, setIsSending] = useState(false);
+  const [leadName, setLeadName] = useState("");
+  const [leadEmail, setLeadEmail] = useState("");
+  const [leadPhone, setLeadPhone] = useState("");
+  const [leadInterest, setLeadInterest] = useState("");
+  const [leadSubmitting, setLeadSubmitting] = useState(false);
+  const [leadSubmitted, setLeadSubmitted] = useState(false);
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -91,6 +97,40 @@ export function SupportChat() {
     }
   };
 
+  const handleLeadSubmit = async () => {
+    const name = leadName.trim();
+    const email = leadEmail.trim();
+    const phone = leadPhone.trim();
+    const interest = leadInterest.trim();
+    if (!name || !email || !phone || !interest || leadSubmitting) return;
+
+    setLeadSubmitting(true);
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          interest,
+          source: "chatbot",
+          transcript: messages.map((m) => `${m.role === "user" ? "User" : "Assistant"}: ${m.content}`).join("\n"),
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to save lead");
+      }
+
+      setLeadSubmitted(true);
+    } catch {
+      alert("Could not save your details. Please try again in a moment.");
+    } finally {
+      setLeadSubmitting(false);
+    }
+  };
+
   return (
     <>
       {/* Floating toggle button */}
@@ -146,7 +186,7 @@ export function SupportChat() {
             )}
           </div>
 
-          <div className="border-t border-white/10 bg-black/40 px-3 py-2">
+          <div className="border-t border-white/10 bg-black/40 px-3 py-2 space-y-3">
             <div className="flex items-end gap-2">
               <textarea
                 value={input}
@@ -166,6 +206,63 @@ export function SupportChat() {
                 <Send className="w-4 h-4" />
               </button>
             </div>
+
+            {!leadSubmitted ? (
+              <div className="space-y-1 border-t border-white/10 pt-2">
+                <p className="text-[11px] text-white/60">
+                  Want the team to reach out? Share your details and we’ll follow up.
+                </p>
+                <div className="grid grid-cols-1 gap-1.5">
+                  <input
+                    type="text"
+                    placeholder="Name"
+                    value={leadName}
+                    onChange={(e) => setLeadName(e.target.value)}
+                    className="px-2 py-1.5 rounded-md bg-white/5 border border-white/10 text-[11px] outline-none placeholder:text-white/30"
+                  />
+                  <input
+                    type="email"
+                    placeholder="Email"
+                    value={leadEmail}
+                    onChange={(e) => setLeadEmail(e.target.value)}
+                    className="px-2 py-1.5 rounded-md bg-white/5 border border-white/10 text-[11px] outline-none placeholder:text-white/30"
+                  />
+                  <input
+                    type="tel"
+                    placeholder="Phone number"
+                    value={leadPhone}
+                    onChange={(e) => setLeadPhone(e.target.value)}
+                    className="px-2 py-1.5 rounded-md bg-white/5 border border-white/10 text-[11px] outline-none placeholder:text-white/30"
+                  />
+                  <input
+                    type="text"
+                    placeholder="What are you interested in? (e.g. Elite membership, PT, home sessions)"
+                    value={leadInterest}
+                    onChange={(e) => setLeadInterest(e.target.value)}
+                    className="px-2 py-1.5 rounded-md bg-white/5 border border-white/10 text-[11px] outline-none placeholder:text-white/30"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLeadSubmit}
+                  disabled={
+                    leadSubmitting ||
+                    !leadName.trim() ||
+                    !leadEmail.trim() ||
+                    !leadPhone.trim() ||
+                    !leadInterest.trim()
+                  }
+                  className="w-full mt-1 py-1.5 rounded-md bg-accent-lime text-black text-[11px] font-semibold hover:bg-accent-lime/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {leadSubmitting ? "Sending..." : "Send my details to the team"}
+                </button>
+              </div>
+            ) : (
+              <p className="mt-1 text-[11px] text-accent-lime">
+                Got it — your details are with the team. You can keep chatting here anytime.
+              </p>
+            )}
+
             <p className="mt-1 text-[10px] text-white/40">
               For general guidance only. Not medical advice.
             </p>

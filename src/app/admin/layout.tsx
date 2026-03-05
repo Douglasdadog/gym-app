@@ -10,12 +10,14 @@ import {
   Wallet,
   Settings,
   LogOut,
+  UserPlus,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Business Overview", icon: LayoutDashboard },
   { href: "/admin/members", label: "Member List", icon: Users },
+  { href: "/admin/leads", label: "Leads", icon: UserPlus },
   { href: "/admin/trainers", label: "Trainer Payouts", icon: Wallet },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
