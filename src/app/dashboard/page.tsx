@@ -11,6 +11,7 @@ import { DailyMacros } from "@/components/dashboard/DailyMacros";
 import { MembershipStatus } from "@/components/dashboard/MembershipStatus";
 import { NutritionCoach } from "@/components/dashboard/NutritionCoach";
 import { BookingCard } from "@/components/dashboard/BookingCard";
+import { SupportChat } from "@/components/SupportChat";
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -115,6 +116,8 @@ export default function DashboardPage() {
           <BookingCard />
         </div>
       </main>
+
+      <SupportChat />
     </div>
   );
 }

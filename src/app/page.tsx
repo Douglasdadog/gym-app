@@ -14,6 +14,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { SupportChat } from "@/components/SupportChat";
 
 export default function HomePage() {
   const [loading, setLoading] = useState(true);
@@ -314,11 +315,17 @@ export default function HomePage() {
             <span className="font-bold tracking-tight">CYBER-GYM</span>
           </div>
           <div className="flex gap-6 text-sm text-white/50">
-            <Link href="/auth" className="hover:text-white">Sign In</Link>
-            <Link href="/auth?signup=1" className="hover:text-white">Sign Up</Link>
+            <Link href="/auth" className="hover:text-white">
+              Sign In
+            </Link>
+            <Link href="/auth?signup=1" className="hover:text-white">
+              Sign Up
+            </Link>
           </div>
         </div>
       </footer>
+
+      <SupportChat />
     </div>
   );
 }
