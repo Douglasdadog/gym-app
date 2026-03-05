@@ -67,9 +67,20 @@ export async function GET() {
       console.error("Admin members: listUsers fallback error", adminErr);
     }
 
-    const members = profiles.map((p) => {
+    type ProfileRow = {
+      id: string;
+      email: string | null;
+      full_name: string | null;
+      username: string | null;
+      membership_tier: string | null;
+      created_at: string | null;
+    };
+
+    const typedProfiles = (profiles ?? []) as ProfileRow[];
+
+    const members = typedProfiles.map((p) => {
       const mem = latestByUser.get(p.id);
-      const profileUsername = (p as any).username as string | null | undefined;
+      const profileUsername = p.username;
       const effectiveUsername =
         profileUsername ??
         (p.email ? usernameByEmail.get(p.email.toLowerCase()) ?? null : null);
