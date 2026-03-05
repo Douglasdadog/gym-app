@@ -51,23 +51,37 @@ export default function AuthPage() {
     check();
   }, [supabase, router, searchParams]);
 
-  const getEmail = () => {
-    if (isSignUp && email.trim()) return email.trim().toLowerCase();
-    const v = username.trim().toLowerCase();
-    if (v.includes("@")) return v;
-    if (v === "user") return "user@cybergym.demo";
-    if (v === "admin") return "admin@cybergym.demo";
-    return `${v}@cybergym.local`;
+  const resolveIdentifierToEmail = async () => {
+    const raw = username.trim();
+    if (!raw) throw new Error("Enter your username or email.");
+
+    const value = raw.toLowerCase();
+
+    // Demo shortcuts
+    if (value === "user") return "user@cybergym.demo";
+    if (value === "admin") return "admin@cybergym.demo";
+    if (value.includes("@")) return value;
+
+    const res = await fetch("/api/auth/resolve-identifier", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier: value }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.email) {
+      throw new Error(data?.error || "No account found with that username.");
+    }
+    return String(data.email).toLowerCase();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setMessage("");
-    const authEmail = getEmail();
     const redirectTo = searchParams.get("redirect") || "/dashboard";
     try {
       if (isSignUp) {
+        const authEmail = email.trim().toLowerCase();
         const { data, error } = await supabase.auth.signUp({
           email: authEmail,
           password,
@@ -96,9 +110,10 @@ export default function AuthPage() {
           }
           router.refresh();
         } else {
-          setMessage("Sign up complete! Please sign in with your email.");
+          setMessage("Sign up complete! Please sign in with your email or username.");
         }
       } else {
+        const authEmail = await resolveIdentifierToEmail();
         const { error } = await supabase.auth.signInWithPassword({ email: authEmail, password });
         if (error) throw error;
         let role = "user";
