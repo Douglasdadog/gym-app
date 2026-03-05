@@ -48,11 +48,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to look up account." }, { status: 500 });
     }
 
-    if (!data?.email) {
-      return NextResponse.json({ error: "No account found with that username." }, { status: 404 });
+    if (data?.email) {
+      return NextResponse.json({ email: data.email.toLowerCase() });
     }
 
-    return NextResponse.json({ email: data.email.toLowerCase() });
+    // Fallback: search auth users by username in user_metadata (covers older accounts).
+    try {
+      const { data: usersPage } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000,
+      });
+
+      const match =
+        usersPage?.users.find((u) => {
+          const meta = (u.user_metadata || {}) as Record<string, unknown>;
+          const metaUsername = String(meta.username ?? "").toLowerCase();
+          const email = String(u.email ?? "").toLowerCase();
+          return metaUsername === username || email === username;
+        }) ?? null;
+
+      if (match?.email) {
+        return NextResponse.json({ email: String(match.email).toLowerCase() });
+      }
+    } catch (adminErr) {
+      console.error("resolve-identifier admin fallback error:", adminErr);
+    }
+
+    return NextResponse.json({ error: "No account found with that username." }, { status: 404 });
   } catch (e) {
     console.error("resolve-identifier error:", e);
     return NextResponse.json({ error: "Failed to resolve identifier." }, { status: 500 });
