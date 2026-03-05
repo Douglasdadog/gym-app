@@ -42,7 +42,14 @@ export default function AdminLeadsPage() {
   const filtered = useMemo(() => {
     return leads.filter((l) => {
       if (filterSource === "all") return true;
-      return (l.source ?? "chatbot") === filterSource;
+      const source = (l.source ?? "chatbot").toLowerCase();
+      if (filterSource === "chatbot") {
+        return source === "chatbot" || source === "web-chat";
+      }
+      if (filterSource === "messenger") {
+        return source === "meta-messenger";
+      }
+      return true;
     });
   }, [leads, filterSource]);
 
@@ -74,7 +81,8 @@ export default function AdminLeadsPage() {
               className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-sm focus:outline-none focus:border-accent-lime/50"
             >
               <option value="all">All Sources</option>
-              <option value="chatbot">Chatbot</option>
+              <option value="chatbot">Chatbot (Web)</option>
+              <option value="messenger">Messenger</option>
             </select>
           </div>
         </div>
@@ -138,7 +146,12 @@ export default function AdminLeadsPage() {
                       {lead.interest || "—"}
                     </td>
                     <td className="py-3 px-4 text-white/70">
-                      {(lead.source ?? "chatbot").toUpperCase()}
+                      {(() => {
+                        const src = (lead.source ?? "chatbot").toLowerCase();
+                        if (src === "meta-messenger") return "MESSENGER";
+                        if (src === "web-chat") return "WEB CHAT";
+                        return "CHATBOT";
+                      })()}
                     </td>
                     <td className="py-3 px-4 text-white/70">
                       {lead.created_at
