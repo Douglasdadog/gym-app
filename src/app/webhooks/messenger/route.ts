@@ -92,15 +92,17 @@ async function getConversationMessages(senderId: string): Promise<ChatMessage[]>
     .from("messenger_conversations")
     .select("role, content")
     .eq("sender_id", senderId)
-    .order("created_at", { ascending: true })
-    .limit(30);
+    .order("created_at", { ascending: false })
+    .limit(15);
 
   if (error) {
     console.error("Get messenger conversation error:", error);
     return [];
   }
 
-  return (data ?? []) as ChatMessage[];
+  const rows = (data ?? []) as ChatMessage[];
+  // We fetched newest first; reverse to chronological order.
+  return rows.reverse();
 }
 
 function extractLeadFromMessages(messages: ChatMessage[]) {
@@ -195,6 +197,25 @@ async function sendMessengerText(recipientId: string, text: string) {
   }
 }
 
+async function clearConversation(senderId: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    console.error("Supabase server env vars are missing");
+    return;
+  }
+
+  const supabaseAdmin = createServiceClient(supabaseUrl, serviceKey);
+  const { error } = await supabaseAdmin
+    .from("messenger_conversations")
+    .delete()
+    .eq("sender_id", senderId);
+
+  if (error) {
+    console.error("Clear messenger conversation error", error);
+  }
+}
+
 // POST: Incoming Messenger events
 export async function POST(request: Request) {
   try {
@@ -211,6 +232,23 @@ export async function POST(request: Request) {
         const senderId = event.sender?.id;
         const text = event.message?.text;
         if (!senderId || !text) continue;
+
+        const lower = text.toLowerCase().trim();
+
+        // Reset phrase: clear stored history and start a fresh flow.
+        if (
+          lower === "reset" ||
+          lower === "start over" ||
+          lower === "new chat" ||
+          lower === "restart"
+        ) {
+          await clearConversation(senderId);
+          await sendMessengerText(
+            senderId,
+            "No worries, let’s start fresh. Are you mainly interested in memberships, personal training, or a gym tour?",
+          );
+          continue;
+        }
 
         // Save the new user message in our conversation history
         await saveConversationMessage(senderId, { role: "user", content: text });
