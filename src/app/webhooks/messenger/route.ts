@@ -130,7 +130,7 @@ async function sendMessengerText(recipientId: string, text: string) {
     token,
   )}`;
 
-  await fetch(url, {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -139,6 +139,11 @@ async function sendMessengerText(recipientId: string, text: string) {
       message: { text },
     }),
   });
+
+  if (!res.ok) {
+    const body = await res.text();
+    console.error("Messenger send error", res.status, body);
+  }
 }
 
 async function handleFaqMessage(senderId: string, text: string) {
