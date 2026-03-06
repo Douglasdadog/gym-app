@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Dumbbell, CreditCard, LayoutDashboard, Calendar, Utensils, Shield } from "lucide-react";
@@ -9,9 +9,21 @@ import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 const PAYMONGO_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY ?? "";
 
+type SavedMethod = {
+  id: string;
+  type: string;
+  last4?: string;
+  exp_month?: number;
+  exp_year?: number;
+  created_at?: number;
+};
+
 export default function PaymentMethodsPage() {
   const [loading, setLoading] = useState(true);
   const [hasCustomer, setHasCustomer] = useState(false);
+  const [savedMethodsLoading, setSavedMethodsLoading] = useState(false);
+  const [savedMethods, setSavedMethods] = useState<SavedMethod[]>([]);
+  const [removing, setRemoving] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -25,6 +37,25 @@ export default function PaymentMethodsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+
+  const loadSavedMethods = useCallback(async () => {
+    setSavedMethodsLoading(true);
+    try {
+      const res = await fetchWithTimeout("/api/payment/saved-methods", {
+        credentials: "include",
+        timeoutMs: 12000,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError((data as { error?: string }).error ?? "Could not load saved cards.");
+        setSavedMethods([]);
+        return;
+      }
+      setSavedMethods((data as { methods?: SavedMethod[] }).methods ?? []);
+    } finally {
+      setSavedMethodsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     const check = async () => {
@@ -42,6 +73,11 @@ export default function PaymentMethodsPage() {
         setHasCustomer(!!profile?.paymongo_customer_id);
         setBillingName((profile?.full_name ?? "").trim() || "Cardholder");
         setIsAdmin(profile?.role === "admin");
+        if (profile?.paymongo_customer_id) {
+          await loadSavedMethods();
+        } else {
+          setSavedMethods([]);
+        }
       } catch {
         router.replace("/auth?redirect=/dashboard/payment-methods");
       } finally {
@@ -49,16 +85,17 @@ export default function PaymentMethodsPage() {
       }
     };
     check();
-  }, [supabase, router]);
+  }, [supabase, router, loadSavedMethods]);
 
   useEffect(() => {
     if (searchParams.get("setup") === "success") {
       setSuccess(true);
       setHasCustomer(true);
       setShowForm(false);
+      loadSavedMethods();
       window.history.replaceState({}, "", "/dashboard/payment-methods");
     }
-  }, [searchParams]);
+  }, [searchParams, loadSavedMethods]);
 
   const ensureCustomer = async (): Promise<boolean> => {
     const res = await fetchWithTimeout("/api/payment/customer", {
@@ -73,7 +110,28 @@ export default function PaymentMethodsPage() {
     }
     setHasCustomer(true);
     setError("");
+    await loadSavedMethods();
     return true;
+  };
+
+  const removeSavedMethod = async (paymentMethodId: string) => {
+    setRemoving(paymentMethodId);
+    setError("");
+    try {
+      const res = await fetchWithTimeout(`/api/payment/saved-methods/${paymentMethodId}`, {
+        method: "DELETE",
+        credentials: "include",
+        timeoutMs: 12000,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError((data as { error?: string }).error ?? "Could not remove card.");
+        return;
+      }
+      await loadSavedMethods();
+    } finally {
+      setRemoving(null);
+    }
   };
 
   const createPaymentMethod = async (): Promise<string | null> => {
@@ -176,6 +234,7 @@ export default function PaymentMethodsPage() {
       setExpMonth("");
       setExpYear("");
       setCvc("");
+      await loadSavedMethods();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -259,26 +318,61 @@ export default function PaymentMethodsPage() {
           </div>
         )}
 
-        {hasCustomer && !showForm && (
+        {!showForm && (
           <div className="glass rounded-2xl p-6 max-w-md">
             <div className="flex items-center gap-3 text-white/80">
               <CreditCard className="w-8 h-8 text-accent-lime" />
               <div>
-                <p className="font-medium">Saved payment method</p>
-                <p className="text-sm text-white/60">You have a card on file. It will be used for subscriptions and bookings when available.</p>
+                <p className="font-medium">Saved payment methods</p>
+                <p className="text-sm text-white/60">
+                  {savedMethodsLoading
+                    ? "Loading your saved cards…"
+                    : savedMethods.length > 0
+                      ? "These cards can be used for faster checkout."
+                      : "No saved cards yet."}
+                </p>
               </div>
             </div>
+
+            {savedMethods.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {savedMethods.map((m) => (
+                  <div
+                    key={m.id}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-white/5 border border-white/10 px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm text-white/80 truncate">
+                        {m.type === "card" ? "Card" : m.type} •••• {m.last4 ?? "----"}
+                      </p>
+                      <p className="text-xs text-white/50">
+                        Exp {String(m.exp_month ?? "").padStart(2, "0")}/{m.exp_year ?? "----"}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={removing === m.id}
+                      onClick={() => removeSavedMethod(m.id)}
+                      className="shrink-0 px-3 py-1.5 rounded-lg bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25 text-xs disabled:opacity-50"
+                    >
+                      {removing === m.id ? "Removing…" : "Remove"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => setShowForm(true)}
               className="mt-4 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
             >
-              Add another card
+              {savedMethods.length > 0 ? "Add another card" : "Add a card"}
             </button>
           </div>
         )}
 
-        {(!hasCustomer || showForm) && (
+        {showForm && (
           <div className="glass rounded-2xl p-6 max-w-md">
             <h2 className="text-lg font-semibold mb-4">Add card</h2>
             <p className="text-sm text-white/60 mb-4">
