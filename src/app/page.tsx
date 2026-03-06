@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { MEMBERSHIP_TIERS } from "@/lib/tiers";
 import { SupportChat } from "@/components/SupportChat";
 
 export default function HomePage() {
@@ -217,28 +218,13 @@ export default function HomePage() {
             viewport={{ once: true }}
             className="text-white/60 mb-12"
           >
-            Choose the plan that fits your goals
+            Choose the plan that fits your goals. High-end facilities, charged monthly.
           </motion.p>
           <div className="grid md:grid-cols-3 gap-6">
             {[
-              {
-                name: "Basic",
-                price: "Gym Access",
-                perks: ["24/7 gym access", "Equipment use", "Locker rooms"],
-                highlight: false,
-              },
-              {
-                name: "Elite",
-                price: "Gym + More",
-                perks: ["Everything in Basic", "Sauna access", "Group classes", "Priority booking"],
-                highlight: true,
-              },
-              {
-                name: "VIP",
-                price: "All-Access",
-                perks: ["Everything in Elite", "Home PT priority", "Unlimited AI coaching", "Dedicated support"],
-                highlight: false,
-              },
+              { ...MEMBERSHIP_TIERS[0], highlight: false },
+              { ...MEMBERSHIP_TIERS[1], highlight: true },
+              { ...MEMBERSHIP_TIERS[2], highlight: false },
             ].map((tier) => (
               <motion.div
                 key={tier.name}
@@ -250,7 +236,8 @@ export default function HomePage() {
                 }`}
               >
                 <h3 className="text-xl font-bold mb-1">{tier.name}</h3>
-                <p className="text-accent-lime font-semibold mb-6">{tier.price}</p>
+                <p className="text-accent-lime font-semibold mb-2">{tier.priceLabel}/mo</p>
+                <p className="text-sm text-white/50 mb-6">{tier.desc}</p>
                 <ul className="space-y-3 text-sm text-white/70">
                   {tier.perks.map((p) => (
                     <li key={p} className="flex items-center gap-2">

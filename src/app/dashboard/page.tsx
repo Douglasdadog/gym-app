@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Dumbbell, LayoutDashboard, Calendar, Utensils, Shield } from "lucide-react";
+import { Dumbbell, LayoutDashboard, Calendar, Utensils, Shield, CreditCard } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { OccupancyGauge } from "@/components/dashboard/OccupancyGauge";
 import { NextPTSession } from "@/components/dashboard/NextPTSession";
@@ -87,6 +87,9 @@ export default function DashboardPage() {
             </Link>
             <Link href="/meal-logs" className="text-white/60 hover:text-white flex items-center gap-1">
               <Utensils className="w-4 h-4" /> Meal Logs
+            </Link>
+            <Link href="/dashboard/payment-methods" className="text-white/60 hover:text-white flex items-center gap-1">
+              <CreditCard className="w-4 h-4" /> Payment
             </Link>
             {isAdmin && (
               <Link href="/admin" className="text-accent-cyan hover:text-accent-cyan/80 flex items-center gap-1">

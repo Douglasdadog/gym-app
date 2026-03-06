@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { summarizeConversationForLead } from "@/lib/leadSummary";
+import { BOT_TIER_SUMMARY } from "@/lib/tiers";
 
 // Groq (Grok-style) chat completions endpoint
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -282,6 +283,7 @@ export async function POST(request: Request) {
           "4) Lead capture: If they say yes to a trial or clearly want to join/book, ask for their Name, then Email, then Phone Number one by one (each in a separate, short message). Never ask more than three lead-capture questions in a row. " +
           "Very important: once the conversation already contains their name and at least one contact detail (email or phone), do NOT ask for those again or loop back to lead-capture. From that point, focus on answering questions and giving helpful next steps. " +
           "Assume the user is in the Philippines: talk about prices in PHP (₱) and do not ask if their phone number is from another country unless they explicitly bring it up. " +
+          BOT_TIER_SUMMARY + " " +
           "Personality: upbeat, friendly, never pushy. Use simple language. If you don’t know exact prices or schedules, say they can be confirmed with the gym team. " +
           "Do NOT mention that you are following stages or flows; just sound natural. Always remember and respect previous answers within the conversation.";
 

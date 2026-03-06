@@ -47,8 +47,10 @@
 
 ## 6. Payment Gateway
 
-- ⬜ **Not yet.** Intentionally not added so subscription plans can be tested per customer first.
-- **When ready:** straightforward to add a provider (e.g. Visa, QRPH, GCash, PayMaya) once there’s a client/merchant setup.
+- ✅ **PayMongo** (Philippines). Membership checkout: card, GCash, PayMaya, GrabPay, QR Ph.
+  - **Create checkout** → redirect to PayMongo → **webhook** fulfills membership (profile + `memberships` row).
+  - If `PAYMONGO_SECRET_KEY` is not set, membership page falls back to direct purchase (no payment) for testing.
+  - See **PAYMONGO_SETUP.md** for keys and webhook URL.
 
 ---
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { MapPin, Home, Dumbbell, ChevronLeft, ChevronRight, Check, CalendarPlus } from "lucide-react";
@@ -57,7 +57,9 @@ export default function BookingsPage() {
   const [bookedSlots, setBookedSlots] = useState<Record<string, Set<string>>>({});
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastBooking, setLastBooking] = useState<{ trainer: string; date: string; dateStr: string; time: string; location: string } | null>(null);
+  const [bookingError, setBookingError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const supabase = createClient();
 
   useEffect(() => {
@@ -71,6 +73,25 @@ export default function BookingsPage() {
     };
     check();
   }, [supabase, router]);
+
+  useEffect(() => {
+    const payment = searchParams.get("payment");
+    const dateStr = searchParams.get("date");
+    const time = searchParams.get("time");
+    const trainer = searchParams.get("trainer");
+    if (payment === "success" && dateStr && time) {
+      const dateDisplay = dateStr.length === 10 ? format(new Date(dateStr + "T12:00:00"), "EEE, MMM d, yyyy") : dateStr;
+      setLastBooking({
+        trainer: trainer || "Your trainer",
+        date: dateDisplay,
+        dateStr,
+        time,
+        location: "Gym",
+      });
+      setShowSuccessModal(true);
+      window.history.replaceState({}, "", "/bookings");
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!authChecked) return;
@@ -145,44 +166,38 @@ export default function BookingsPage() {
     if (locationType === "Home" && !address.trim()) return;
 
     setSubmitting(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setSubmitting(false);
-      return;
-    }
-
     const dateStr = format(selectedDate, "yyyy-MM-dd");
-    const { error } = await supabase.from("bookings").insert({
-      user_id: user.id,
-      trainer_id: selectedTrainer.id,
-      date: dateStr,
-      time_slot: selectedSlot,
-      location_type: locationType,
-      address: locationType === "Home" ? address : null,
-      travel_fee: travelFee,
-      status: "pending",
-    });
+    try {
+      const res = await fetch("/api/payment/create-booking-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          trainer_id: selectedTrainer.id,
+          date: dateStr,
+          time_slot: selectedSlot,
+          location_type: locationType,
+          address: locationType === "Home" ? address : null,
+          travel_fee: travelFee,
+        }),
+      });
+      const data = await res.json();
 
-    setSubmitting(false);
-    if (!error) {
-      setLastBooking({
-        trainer: selectedTrainer.name,
-        date: format(selectedDate, "EEE, MMM d, yyyy"),
-        dateStr,
-        time: selectedSlot,
-        location: locationType === "Home" ? "Home" : "Gym",
-      });
-      setShowSuccessModal(true);
-      setSelectedDate(undefined);
-      setSelectedSlot("");
-      setAddress("");
-      setTravelFee(0);
-      setBookedSlots((prev) => {
-        const next = { ...prev };
-        if (!next[dateStr]) next[dateStr] = new Set();
-        next[dateStr].add(selectedSlot);
-        return next;
-      });
+      if (res.status === 503 && data.error?.includes("not configured")) {
+        setBookingError("Payment is required to confirm bookings. Please set up PayMongo in the dashboard.");
+        setSubmitting(false);
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || "Could not start payment");
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
+      }
+      throw new Error("No checkout URL");
+    } catch (err) {
+      console.error(err);
+      setBookingError(err instanceof Error ? err.message : "Something went wrong.");
+      setSubmitting(false);
     }
   };
 
@@ -429,6 +444,9 @@ export default function BookingsPage() {
                 )}
               </AnimatePresence>
 
+              {bookingError && (
+                <p className="text-red-400 text-xs mt-2">{bookingError}</p>
+              )}
               {/* Dynamic Summary & CTA */}
               <div className="pt-4 space-y-3">
                 {selectedTrainer && selectedDate && selectedSlot && (
@@ -456,7 +474,7 @@ export default function BookingsPage() {
                   }
                   className="w-full py-2.5 rounded-lg bg-[#CCFF00] text-black text-sm font-semibold hover:bg-accent-lime/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
-                  {submitting ? "Booking..." : "Confirm Booking"}
+                  {submitting ? "Redirecting to payment..." : "Pay & Confirm Booking"}
                 </button>
               </div>
             </div>
