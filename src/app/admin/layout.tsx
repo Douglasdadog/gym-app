@@ -14,6 +14,7 @@ import {
   Calendar,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 const ADMIN_NAV = [
   { href: "/admin", label: "Business Overview", icon: LayoutDashboard },
@@ -36,13 +37,16 @@ export default function AdminLayout({
 
   useEffect(() => {
     const check = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.replace("/auth?redirect=/admin");
-        return;
-      }
       try {
-        const res = await fetch("/api/auth/role", { credentials: "include" });
+        const [userResult, res] = await Promise.all([
+          supabase.auth.getUser(),
+          fetchWithTimeout("/api/auth/role", { credentials: "include", timeoutMs: 10000 }),
+        ]);
+        const { data: { user } } = userResult;
+        if (!user) {
+          router.replace("/auth?redirect=/admin");
+          return;
+        }
         const data = await res.json();
         if (data.role !== "admin") {
           router.replace("/dashboard");

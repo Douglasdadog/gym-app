@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import Link from "next/link";
 import { Dumbbell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { useRouter, useSearchParams } from "next/navigation";
 
 export default function AuthPage() {
@@ -28,25 +29,27 @@ export default function AuthPage() {
 
   useEffect(() => {
     const check = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        let role = "user";
-        try {
-          const res = await fetch("/api/auth/role", { credentials: "include" });
-          const data = await res.json();
-          role = data.role ?? "user";
-        } catch {
-          role = "user";
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          let role = "user";
+          try {
+            const res = await fetchWithTimeout("/api/auth/role", { credentials: "include", timeoutMs: 8000 });
+            const data = await res.json();
+            role = data.role ?? "user";
+          } catch {
+            role = "user";
+          }
+          if (role === "admin") {
+            router.replace("/admin");
+          } else {
+            router.replace(searchParams.get("redirect") || "/dashboard");
+          }
+          return;
         }
-        const redirectTo = searchParams.get("redirect");
-        if (role === "admin") {
-          router.replace("/admin");
-        } else {
-          router.replace(redirectTo || "/dashboard");
-        }
-        return;
+      } finally {
+        setAuthChecking(false);
       }
-      setAuthChecking(false);
     };
     check();
   }, [supabase, router, searchParams]);
@@ -62,7 +65,7 @@ export default function AuthPage() {
     if (value === "admin") return "admin@cybergym.demo";
     if (value.includes("@")) return value;
 
-    const res = await fetch("/api/auth/resolve-identifier", {
+    const res = await fetchWithTimeout("/api/auth/resolve-identifier", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ identifier: value }),
@@ -97,7 +100,7 @@ export default function AuthPage() {
         if (data.session) {
           let role = "user";
           try {
-            const res = await fetch("/api/auth/role", { credentials: "include" });
+            const res = await fetchWithTimeout("/api/auth/role", { credentials: "include", timeoutMs: 8000 });
             const data2 = await res.json();
             role = data2.role ?? "user";
           } catch {
@@ -118,7 +121,7 @@ export default function AuthPage() {
         if (error) throw error;
         let role = "user";
         try {
-          const res = await fetch("/api/auth/role", { credentials: "include" });
+          const res = await fetchWithTimeout("/api/auth/role", { credentials: "include", timeoutMs: 8000 });
           const data = await res.json();
           role = data.role ?? "user";
         } catch {

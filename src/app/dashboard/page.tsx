@@ -22,18 +22,23 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const check = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          router.replace("/auth?redirect=/dashboard");
+          return;
+        }
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+        setIsAdmin(profile?.role === "admin");
+      } catch {
         router.replace("/auth?redirect=/dashboard");
-        return;
+      } finally {
+        setLoading(false);
       }
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-      setIsAdmin(profile?.role === "admin");
-      setLoading(false);
     };
     check();
   }, [supabase, router]);

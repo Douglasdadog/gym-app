@@ -24,6 +24,7 @@ import {
   isToday,
   isSameDay,
 } from "date-fns";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 type ScheduleEvent = {
   id: string;
@@ -63,7 +64,7 @@ export default function AdminSchedulePage() {
     if (trainerFilter) params.set("trainer_id", trainerFilter);
 
     setLoading(true);
-    fetch(`/api/admin/schedule?${params}`, { credentials: "include" })
+    fetchWithTimeout(`/api/admin/schedule?${params}`, { credentials: "include" })
       .then((res) => res.json())
       .then((data) => {
         setEvents(data.events ?? []);

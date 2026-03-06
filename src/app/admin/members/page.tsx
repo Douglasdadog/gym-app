@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, XCircle, Loader2, Snowflake, Sun, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 interface MemberRow {
   id: string;
   user_id: string;
@@ -35,15 +36,15 @@ export default function AdminMembersPage() {
   useEffect(() => {
     const loadMembers = async () => {
       try {
-        const res = await fetch("/api/admin/members", { credentials: "include" });
+        const res = await fetchWithTimeout("/api/admin/members", { credentials: "include" });
         const data = await res.json();
         if (!res.ok) {
           setMembers([]);
-          setLoading(false);
           return;
         }
         setMembers(data.members ?? []);
-      } catch {
+      } catch (e) {
+        console.error(e);
         setMembers([]);
       } finally {
         setLoading(false);
@@ -69,7 +70,7 @@ export default function AdminMembersPage() {
     if (!row) return;
     setFreezing(true);
     try {
-      const res = await fetch(`/api/admin/members/${row.user_id}`, {
+      const res = await fetchWithTimeout(`/api/admin/members/${row.user_id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "freeze" }),
@@ -93,7 +94,7 @@ export default function AdminMembersPage() {
     if (!row) return;
     setUnfreezing(true);
     try {
-      const res = await fetch(`/api/admin/members/${row.user_id}`, {
+      const res = await fetchWithTimeout(`/api/admin/members/${row.user_id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "unfreeze" }),
@@ -117,7 +118,7 @@ export default function AdminMembersPage() {
     if (!row) return;
     setRemoving(true);
     try {
-      const res = await fetch(`/api/admin/members/${row.user_id}`, {
+      const res = await fetchWithTimeout(`/api/admin/members/${row.user_id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "remove" }),

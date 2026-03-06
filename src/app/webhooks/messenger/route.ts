@@ -172,16 +172,11 @@ async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
   });
 }
 
-async function sendMessengerText(recipientId: string, text: string) {
-  // Use the Page access token for both Messenger and Instagram DMs.
-  const token = process.env.META_PAGE_ACCESS_TOKEN;
-  if (!token) {
-    console.warn("META_PAGE_ACCESS_TOKEN not set; cannot reply");
-    return;
-  }
+async function sendChannelMessage(recipientId: string, text: string, token: string | undefined) {
+  if (!token?.trim()) return;
 
   const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(
-    token,
+    token.trim(),
   )}`;
 
   const res = await fetch(url, {
@@ -196,7 +191,15 @@ async function sendMessengerText(recipientId: string, text: string) {
 
   if (!res.ok) {
     const body = await res.text();
-    console.error("Messenger send error", res.status, body);
+    const isNoMatchingUser = body.includes("(#100)") || body.includes("No matching user found");
+    if (res.status === 400 && isNoMatchingUser) {
+      console.warn(
+        "[IG/Messenger] Send 400 - No matching user. For Instagram: 1) In Meta Business Suite, link your Facebook Page to your Instagram account. 2) In App Dashboard > Messenger > Settings, add Instagram to the webhook and subscribe to messages. 3) Use a Page token that has instagram_manage_messages. 4) User must have messaged you first (within 24h window).",
+        body.slice(0, 300)
+      );
+    } else {
+      console.error("Send message error", res.status, body);
+    }
   }
 }
 
@@ -229,6 +232,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
+    const isMessenger = body.object === "page";
+
     for (const entry of body.entry) {
       const messaging: MessengerEvent[] = entry.messaging ?? [];
       for (const event of messaging) {
@@ -246,10 +251,16 @@ export async function POST(request: Request) {
           lower === "restart"
         ) {
           await clearConversation(senderId);
-          await sendMessengerText(
-            senderId,
-            "No worries, let’s start fresh. Are you mainly interested in memberships, personal training, or a gym tour?",
-          );
+          const resetToken = isMessenger
+            ? process.env.META_PAGE_ACCESS_TOKEN
+            : (process.env.META_IG_ACCESS_TOKEN?.trim() || process.env.META_PAGE_ACCESS_TOKEN);
+          if (resetToken) {
+            await sendChannelMessage(
+              senderId,
+              "No worries, let’s start fresh. Are you mainly interested in memberships, personal training, or a gym tour?",
+              resetToken,
+            );
+          }
           continue;
         }
 
@@ -352,7 +363,17 @@ export async function POST(request: Request) {
 
         await maybeInsertLeadFromMessages([...history, { role: "user", content: text }]);
 
-        await sendMessengerText(senderId, replyText);
+        // Instagram: prefer IG token; fall back to Page token (same token often works when Page is linked to IG)
+        const sendToken = isMessenger
+          ? process.env.META_PAGE_ACCESS_TOKEN
+          : (process.env.META_IG_ACCESS_TOKEN?.trim() || process.env.META_PAGE_ACCESS_TOKEN);
+        if (sendToken) {
+          await sendChannelMessage(senderId, replyText, sendToken);
+        } else if (!isMessenger) {
+          console.warn(
+            "Instagram DM received; reply skipped. Set META_IG_ACCESS_TOKEN or ensure META_PAGE_ACCESS_TOKEN is set (Page must be linked to IG with instagram_manage_messages)."
+          );
+        }
       }
     }
 

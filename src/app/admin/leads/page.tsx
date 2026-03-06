@@ -15,6 +15,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 type Staff = { id: string; full_name: string | null; email: string | null };
 type LeadRow = {
@@ -64,7 +65,7 @@ export default function AdminLeadsPage() {
 
   const loadLeads = async () => {
     try {
-      const res = await fetch("/api/admin/leads", { credentials: "include" });
+      const res = await fetchWithTimeout("/api/admin/leads", { credentials: "include" });
       const data = await res.json();
       if (!res.ok) {
         setLeads([]);
@@ -89,7 +90,7 @@ export default function AdminLeadsPage() {
   useEffect(() => {
     if (!tasksLeadId) return;
     setTasksLoading(true);
-    fetch(`/api/admin/leads/${tasksLeadId}/tasks`, { credentials: "include" })
+    fetchWithTimeout(`/api/admin/leads/${tasksLeadId}/tasks`, { credentials: "include" })
       .then((r) => r.json())
       .then((d) => {
         setTasks(d.tasks ?? []);
@@ -116,7 +117,7 @@ export default function AdminLeadsPage() {
   const updateLead = async (id: string, patch: { status?: string; notes?: string | null; assigned_to_id?: string | null }) => {
     setUpdatingId(id);
     try {
-      const res = await fetch(`/api/admin/leads/${id}`, {
+      const res = await fetchWithTimeout(`/api/admin/leads/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -142,7 +143,7 @@ export default function AdminLeadsPage() {
   const addTask = async () => {
     if (!tasksLeadId || !newTaskTitle.trim()) return;
     try {
-      const res = await fetch(`/api/admin/leads/${tasksLeadId}/tasks`, {
+      const res = await fetchWithTimeout(`/api/admin/leads/${tasksLeadId}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -160,7 +161,7 @@ export default function AdminLeadsPage() {
 
   const toggleTaskComplete = async (taskId: string, completed: boolean) => {
     try {
-      const res = await fetch(`/api/admin/leads/tasks/${taskId}`, {
+      const res = await fetchWithTimeout(`/api/admin/leads/tasks/${taskId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -176,7 +177,7 @@ export default function AdminLeadsPage() {
 
   const deleteTask = async (taskId: string) => {
     try {
-      const res = await fetch(`/api/admin/leads/tasks/${taskId}`, {
+      const res = await fetchWithTimeout(`/api/admin/leads/tasks/${taskId}`, {
         method: "DELETE",
         credentials: "include",
       });

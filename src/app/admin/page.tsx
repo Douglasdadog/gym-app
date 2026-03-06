@@ -22,6 +22,7 @@ import {
   Bar,
 } from "recharts";
 import { createClient } from "@/lib/supabase/client";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import type { GymStatus } from "@/types/database";
 
 interface ChartData {
@@ -51,47 +52,49 @@ export default function AdminOverviewPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      const today = new Date().toISOString().split("T")[0];
+      try {
+        const today = new Date().toISOString().split("T")[0];
 
-      // Total revenue from memberships (sum of price for active)
-      const { data: memberships } = await supabase
-        .from("memberships")
-        .select("price, status");
-      const activeMemberships = memberships?.filter((m: { status: string }) => m.status === "active") ?? [];
-      const totalRevenue = activeMemberships.reduce((s: number, m: { price?: number }) => s + (m.price ?? 0), 0);
+        const { data: memberships } = await supabase
+          .from("memberships")
+          .select("price, status");
+        const activeMemberships = memberships?.filter((m: { status: string }) => m.status === "active") ?? [];
+        const totalRevenue = activeMemberships.reduce((s: number, m: { price?: number }) => s + (m.price ?? 0), 0);
 
-      // Today's PT bookings
-      const { count } = await supabase
-        .from("bookings")
-        .select("*", { count: "exact", head: true })
-        .eq("date", today)
-        .in("status", ["pending", "confirmed"]);
+        const { count } = await supabase
+          .from("bookings")
+          .select("*", { count: "exact", head: true })
+          .eq("date", today)
+          .in("status", ["pending", "confirmed"]);
 
-      // Churn: cancelled / total in last 30 days (simplified)
-      const { data: allMembers } = await supabase
-        .from("memberships")
-        .select("status");
-      const total = allMembers?.length ?? 0;
-      const cancelled = allMembers?.filter((m: { status: string }) => m.status === "cancelled").length ?? 0;
-      const churnRate = total > 0 ? Math.round((cancelled / total) * 100) : 0;
+        const { data: allMembers } = await supabase
+          .from("memberships")
+          .select("status");
+        const total = allMembers?.length ?? 0;
+        const cancelled = allMembers?.filter((m: { status: string }) => m.status === "cancelled").length ?? 0;
+        const churnRate = total > 0 ? Math.round((cancelled / total) * 100) : 0;
 
-      setKpis({
-        totalRevenue,
-        activeMemberships: activeMemberships.length,
-        todayBookings: count ?? 0,
-        churnRate,
-      });
+        setKpis({
+          totalRevenue,
+          activeMemberships: activeMemberships.length,
+          todayBookings: count ?? 0,
+          churnRate,
+        });
 
-      const { data: status } = await supabase.from("gym_status").select("*").single();
-      setOccupancy(status as GymStatus);
+        const { data: status } = await supabase.from("gym_status").select("*").single();
+        setOccupancy(status as GymStatus);
 
-      const res = await fetch("/api/admin/analytics");
-      if (res.ok) {
-        const { memberGrowth: mg, footTraffic: ft } = await res.json();
-        setMemberGrowth(mg ?? []);
-        setFootTraffic(ft ?? []);
+        const res = await fetchWithTimeout("/api/admin/analytics");
+        if (res.ok) {
+          const { memberGrowth: mg, footTraffic: ft } = await res.json();
+          setMemberGrowth(mg ?? []);
+          setFootTraffic(ft ?? []);
+        }
+      } catch {
+        // keep existing state on error
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     loadData();
 
@@ -296,7 +299,7 @@ export default function AdminOverviewPage() {
               setGrokLoading(true);
               setGrokInsights(null);
               try {
-                const res = await fetch("/api/admin/grok-insights", { method: "POST", credentials: "include" });
+                const res = await fetchWithTimeout("/api/admin/grok-insights", { method: "POST", credentials: "include", timeoutMs: 15000 });
                 const data = await res.json();
                 if (res.ok) setGrokInsights(data);
                 else alert(data.error || "Failed to generate insights");

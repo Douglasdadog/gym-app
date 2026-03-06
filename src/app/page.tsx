@@ -14,6 +14,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { SupportChat } from "@/components/SupportChat";
 
 export default function HomePage() {
@@ -26,7 +27,7 @@ export default function HomePage() {
       const { data: { user: u } } = await supabase.auth.getUser();
       if (u) {
         try {
-          const res = await fetch("/api/auth/role", { credentials: "include" });
+          const res = await fetchWithTimeout("/api/auth/role", { credentials: "include", timeoutMs: 8000 });
           const data = await res.json();
           const dest = data.role === "admin" ? "/admin" : "/dashboard";
           router.replace(dest);
@@ -41,7 +42,7 @@ export default function HomePage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: string, session: { user?: unknown } | null) => {
       if (session?.user) {
         try {
-          const res = await fetch("/api/auth/role", { credentials: "include" });
+          const res = await fetchWithTimeout("/api/auth/role", { credentials: "include", timeoutMs: 8000 });
           const data = await res.json();
           const dest = data.role === "admin" ? "/admin" : "/dashboard";
           router.replace(dest);
