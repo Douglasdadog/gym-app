@@ -9,7 +9,13 @@ const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 type MessengerEvent = {
   sender?: { id: string };
-  message?: { text?: string };
+  message?: {
+    text?: string;
+    is_echo?: boolean;
+    is_deleted?: boolean;
+    is_unsupported?: boolean;
+    attachments?: unknown[];
+  };
 };
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
@@ -177,7 +183,10 @@ async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
 }
 
 async function sendChannelMessage(recipientId: string, text: string, token: string | undefined) {
-  if (!token?.trim()) return;
+  if (!token?.trim()) {
+    console.warn("[Meta] Reply skipped: missing META_PAGE_ACCESS_TOKEN");
+    return;
+  }
 
   const url = `https://graph.facebook.com/v21.0/me/messages?access_token=${encodeURIComponent(
     token.trim(),
@@ -194,15 +203,38 @@ async function sendChannelMessage(recipientId: string, text: string, token: stri
   });
 
   if (!res.ok) {
-    const body = await res.text();
-    const isNoMatchingUser = body.includes("(#100)") || body.includes("No matching user found");
-    if (res.status === 400 && isNoMatchingUser) {
+    const raw = await res.text();
+    type MetaError = {
+      message?: string;
+      type?: string;
+      code?: number;
+      error_subcode?: number;
+      fbtrace_id?: string;
+    };
+    let meta: MetaError | null = null;
+    try {
+      const parsed = JSON.parse(raw) as { error?: MetaError };
+      meta = parsed.error ?? null;
+    } catch {
+      meta = null;
+    }
+
+    const code = meta?.code;
+    const sub = meta?.error_subcode;
+    const msg = meta?.message ?? raw.slice(0, 300);
+
+    if ((code === 100 || msg.includes("No matching user")) && res.status === 400) {
       console.warn(
-        "[IG/Messenger] Send 400 - No matching user. For Instagram: 1) In Meta Business Suite, link your Facebook Page to your Instagram account. 2) In App Dashboard > Messenger > Settings, add Instagram to the webhook and subscribe to messages. 3) Use a Page token that has instagram_manage_messages. 4) User must have messaged you first (within 24h window).",
-        body.slice(0, 300)
+        "[Meta] Send failed: No matching user. For Instagram DMs: ensure the Page is linked to the IG Professional account, webhook is subscribed to Instagram messages, token has instagram_manage_messages, and user messaged you within 24 hours.",
+        { code, sub, fbtrace_id: meta?.fbtrace_id, msg }
+      );
+    } else if (code === 10 || code === 200 || msg.toLowerCase().includes("permission")) {
+      console.warn(
+        "[Meta] Send failed: missing permissions. Ensure META_PAGE_ACCESS_TOKEN is a Page token for the linked Page and has instagram_manage_messages + pages_manage_metadata (Advanced access if needed).",
+        { code, sub, fbtrace_id: meta?.fbtrace_id, msg }
       );
     } else {
-      console.error("Send message error", res.status, body);
+      console.error("[Meta] Send message error", res.status, { code, sub, fbtrace_id: meta?.fbtrace_id, msg });
     }
   }
 }
@@ -230,7 +262,7 @@ async function clearConversation(senderId: string) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log("Messenger webhook event", JSON.stringify(body, null, 2));
+    console.log("[Meta webhook] object=", body?.object, "entries=", Array.isArray(body?.entry) ? body.entry.length : 0);
 
     if ((body.object !== "page" && body.object !== "instagram") || !Array.isArray(body.entry)) {
       return NextResponse.json({ received: true }, { status: 200 });
@@ -240,7 +272,12 @@ export async function POST(request: Request) {
       const messaging: MessengerEvent[] = entry.messaging ?? [];
       for (const event of messaging) {
         const senderId = event.sender?.id;
-        const text = event.message?.text;
+        const isEcho = event.message?.is_echo;
+        if (isEcho) continue;
+
+        const text =
+          event.message?.text ??
+          (event.message?.attachments?.length ? "[Sent an attachment]" : null);
         if (!senderId || !text) continue;
 
         const lower = text.toLowerCase().trim();
