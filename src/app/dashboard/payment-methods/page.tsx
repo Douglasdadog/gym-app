@@ -6,8 +6,10 @@ import Link from "next/link";
 import { Dumbbell, CreditCard, LayoutDashboard, Calendar, Utensils, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { addDemoCardFromInput, loadDemoCards, removeDemoCard } from "@/lib/demoCards";
 
 const PAYMONGO_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY ?? "";
+const DEMO_PAYMENTS = process.env.NEXT_PUBLIC_DEMO_PAYMENTS === "1";
 
 type SavedMethod = {
   id: string;
@@ -41,6 +43,18 @@ export default function PaymentMethodsPage() {
   const loadSavedMethods = useCallback(async () => {
     setSavedMethodsLoading(true);
     try {
+      if (DEMO_PAYMENTS) {
+        const demo = loadDemoCards().map((c) => ({
+          id: c.id,
+          type: c.brand,
+          last4: c.last4,
+          exp_month: c.exp_month,
+          exp_year: c.exp_year,
+          created_at: c.created_at,
+        })) satisfies SavedMethod[];
+        setSavedMethods(demo);
+        return;
+      }
       const res = await fetchWithTimeout("/api/payment/saved-methods", {
         credentials: "include",
         timeoutMs: 12000,
@@ -98,6 +112,12 @@ export default function PaymentMethodsPage() {
   }, [searchParams, loadSavedMethods]);
 
   const ensureCustomer = async (): Promise<boolean> => {
+    if (DEMO_PAYMENTS) {
+      setHasCustomer(true);
+      setError("");
+      await loadSavedMethods();
+      return true;
+    }
     const res = await fetchWithTimeout("/api/payment/customer", {
       method: "POST",
       credentials: "include",
@@ -118,6 +138,11 @@ export default function PaymentMethodsPage() {
     setRemoving(paymentMethodId);
     setError("");
     try {
+      if (DEMO_PAYMENTS) {
+        removeDemoCard(paymentMethodId);
+        await loadSavedMethods();
+        return;
+      }
       const res = await fetchWithTimeout(`/api/payment/saved-methods/${paymentMethodId}`, {
         method: "DELETE",
         credentials: "include",
@@ -177,6 +202,24 @@ export default function PaymentMethodsPage() {
     setError("");
     setAdding(true);
     try {
+      if (DEMO_PAYMENTS) {
+        const r = addDemoCardFromInput({ cardNumber, expMonth, expYear });
+        if (!r.ok) {
+          setError(r.error);
+          setAdding(false);
+          return;
+        }
+        setSuccess(true);
+        setHasCustomer(true);
+        setShowForm(false);
+        setCardNumber("");
+        setExpMonth("");
+        setExpYear("");
+        setCvc("");
+        await loadSavedMethods();
+        return;
+      }
+
       if (!hasCustomer && !(await ensureCustomer())) {
         setAdding(false);
         return;
@@ -188,7 +231,12 @@ export default function PaymentMethodsPage() {
       });
       if (!setupRes.ok) {
         const d = await setupRes.json().catch(() => ({}));
-        setError((d as { error?: string }).error ?? "Could not start card setup.");
+        const msg = (d as { error?: string }).error ?? "Could not start card setup.";
+        if (msg.includes("On session payments are not yet supported")) {
+          setError("Saved cards aren’t enabled for this PayMongo account yet. Turn on DEMO mode for presentation, or enable PayMongo Card Vaulting.");
+        } else {
+          setError(msg);
+        }
         setAdding(false);
         return;
       }
@@ -305,6 +353,11 @@ export default function PaymentMethodsPage() {
         <p className="text-white/60 mb-8">
           Add a card to pay for memberships and trainer bookings quickly. Your card is stored securely and can be used for future payments.
         </p>
+        {DEMO_PAYMENTS && (
+          <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10 text-white/70 text-sm">
+            Demo mode is ON. Cards are saved locally for presentation (last4 + expiry only).
+          </div>
+        )}
 
         {success && (
           <div className="mb-6 p-4 rounded-xl bg-accent-lime/20 text-accent-lime border border-accent-lime/40">
