@@ -46,8 +46,14 @@ export async function POST(request: NextRequest) {
     const name = (profile?.full_name ?? "").trim() || "Customer";
     const parts = name.split(/\s+/);
     const firstName = parts[0] ?? "Customer";
-    const lastName = parts.slice(1).join(" ") || ".";
-    const email = (profile?.email ?? user.email ?? "").trim() || "customer@cybergym.ph";
+    const lastName = parts.slice(1).join(" ") || "NA";
+    const email = (profile?.email ?? user.email ?? "").trim();
+    if (!email) {
+      return NextResponse.json(
+        { error: "Missing email on account. Please add an email and try again." },
+        { status: 400 }
+      );
+    }
 
     const res = await fetch("https://api.paymongo.com/v1/customers", {
       method: "POST",
@@ -69,10 +75,25 @@ export async function POST(request: NextRequest) {
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      console.error("PayMongo create customer error", res.status, errText);
+      const raw = await res.text();
+      console.error("PayMongo create customer error", res.status, raw);
+      let detail = "Could not create payment profile.";
+      try {
+        const parsed = JSON.parse(raw) as {
+          errors?: Array<{ detail?: string }>;
+          error?: { message?: string };
+          message?: string;
+        };
+        detail =
+          parsed.errors?.[0]?.detail ||
+          parsed.error?.message ||
+          parsed.message ||
+          detail;
+      } catch {
+        // keep fallback detail
+      }
       return NextResponse.json(
-        { error: "Could not create payment profile." },
+        { error: `PayMongo: ${detail}` },
         { status: 502 }
       );
     }
