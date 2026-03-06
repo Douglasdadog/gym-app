@@ -40,8 +40,8 @@ export async function POST(
 
     const body = await request.json();
     const action = body?.action as string;
-    if (!action || !["freeze", "remove"].includes(action)) {
-      return NextResponse.json({ error: "Invalid action. Use 'freeze' or 'remove'." }, { status: 400 });
+    if (!action || !["freeze", "unfreeze", "remove"].includes(action)) {
+      return NextResponse.json({ error: "Invalid action. Use 'freeze', 'unfreeze', or 'remove'." }, { status: 400 });
     }
 
     // 1. Check out user from gym if they're in
@@ -79,6 +79,21 @@ export async function POST(
       await supabaseAdmin
         .from("profiles")
         .update({ membership_tier: "None" })
+        .eq("id", user_id);
+
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "unfreeze") {
+      // Restore membership to active with Basic tier
+      await supabaseAdmin
+        .from("memberships")
+        .update({ status: "active", type: "Basic" })
+        .eq("user_id", user_id);
+
+      await supabaseAdmin
+        .from("profiles")
+        .update({ membership_tier: "Basic" })
         .eq("id", user_id);
 
       return NextResponse.json({ ok: true });

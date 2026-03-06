@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, XCircle, Loader2, Snowflake, Trash2 } from "lucide-react";
+import { Search, XCircle, Loader2, Snowflake, Sun, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 interface MemberRow {
   id: string;
@@ -24,9 +24,11 @@ export default function AdminMembersPage() {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showCancelModal, setShowCancelModal] = useState<MemberRow | null>(null);
   const [showFreezeModal, setShowFreezeModal] = useState<MemberRow | null>(null);
+  const [showUnfreezeModal, setShowUnfreezeModal] = useState<MemberRow | null>(null);
   const [showRemoveModal, setShowRemoveModal] = useState<MemberRow | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [freezing, setFreezing] = useState(false);
+  const [unfreezing, setUnfreezing] = useState(false);
   const [removing, setRemoving] = useState(false);
   const supabase = createClient();
 
@@ -84,6 +86,30 @@ export default function AdminMembersPage() {
       alert(err instanceof Error ? err.message : "Failed to freeze membership");
     } finally {
       setFreezing(false);
+    }
+  };
+
+  const handleUnfreeze = async (row: MemberRow) => {
+    if (!row) return;
+    setUnfreezing(true);
+    try {
+      const res = await fetch(`/api/admin/members/${row.user_id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "unfreeze" }),
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to unfreeze");
+      setMembers((prev) =>
+        prev.map((m) => (m.id === row.id ? { ...m, status: "active", tier: "Basic" } : m))
+      );
+      setShowUnfreezeModal(null);
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Failed to unfreeze membership");
+    } finally {
+      setUnfreezing(false);
     }
   };
 
@@ -280,6 +306,15 @@ export default function AdminMembersPage() {
                             Freeze
                           </button>
                         )}
+                        {(row.status === "frozen" || row.status === "cancelled") && (
+                          <button
+                            onClick={() => setShowUnfreezeModal(row)}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-amber-400 hover:bg-amber-500/20 text-sm font-medium"
+                          >
+                            <Sun className="w-4 h-4" />
+                            Unfreeze
+                          </button>
+                        )}
                         <button
                           onClick={() => setShowRemoveModal(row)}
                           className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-red-400 hover:bg-red-500/20 text-sm font-medium border border-red-500/30"
@@ -395,6 +430,60 @@ export default function AdminMembersPage() {
                     </>
                   ) : (
                     "Yes, Freeze"
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Unfreeze Confirmation Modal */}
+      <AnimatePresence>
+        {showUnfreezeModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+            onClick={() => !unfreezing && setShowUnfreezeModal(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              onClick={(e) => e.stopPropagation()}
+              className="glass rounded-2xl p-6 max-w-md w-full border-2 border-amber-500/50 bg-amber-950/30"
+            >
+              <h3 className="text-xl font-bold text-amber-400 mb-2">Unfreeze Membership</h3>
+              <p className="text-white/80 mb-4">
+                Unfreeze the membership for{" "}
+                <strong className="text-white">{showUnfreezeModal.full_name || showUnfreezeModal.email}</strong>?
+                They will be restored to <strong className="text-amber-300">Basic</strong> tier and active status.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowUnfreezeModal(null)}
+                  disabled={unfreezing}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleUnfreeze(showUnfreezeModal)}
+                  disabled={unfreezing}
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium flex items-center gap-2"
+                >
+                  {unfreezing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Unfreezing...
+                    </>
+                  ) : (
+                    <>
+                      <Sun className="w-4 h-4" />
+                      Yes, Unfreeze
+                    </>
                   )}
                 </button>
               </div>
