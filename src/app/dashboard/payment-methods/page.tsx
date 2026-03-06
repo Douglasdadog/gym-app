@@ -1,31 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Dumbbell, CreditCard, LayoutDashboard, Calendar, Utensils, Shield } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
-import { addDemoCardFromInput, loadDemoCards, removeDemoCard } from "@/lib/demoCards";
 
 const PAYMONGO_PUBLIC_KEY = process.env.NEXT_PUBLIC_PAYMONGO_PUBLIC_KEY ?? "";
-const DEMO_PAYMENTS = process.env.NEXT_PUBLIC_DEMO_PAYMENTS === "1";
-
-type SavedMethod = {
-  id: string;
-  type: string;
-  last4?: string;
-  exp_month?: number;
-  exp_year?: number;
-  created_at?: number;
-};
 
 export default function PaymentMethodsPage() {
   const [loading, setLoading] = useState(true);
   const [hasCustomer, setHasCustomer] = useState(false);
-  const [savedMethodsLoading, setSavedMethodsLoading] = useState(false);
-  const [savedMethods, setSavedMethods] = useState<SavedMethod[]>([]);
-  const [removing, setRemoving] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -39,37 +25,6 @@ export default function PaymentMethodsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
-
-  const loadSavedMethods = useCallback(async () => {
-    setSavedMethodsLoading(true);
-    try {
-      if (DEMO_PAYMENTS) {
-        const demo = loadDemoCards().map((c) => ({
-          id: c.id,
-          type: c.brand,
-          last4: c.last4,
-          exp_month: c.exp_month,
-          exp_year: c.exp_year,
-          created_at: c.created_at,
-        })) satisfies SavedMethod[];
-        setSavedMethods(demo);
-        return;
-      }
-      const res = await fetchWithTimeout("/api/payment/saved-methods", {
-        credentials: "include",
-        timeoutMs: 12000,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError((data as { error?: string }).error ?? "Could not load saved cards.");
-        setSavedMethods([]);
-        return;
-      }
-      setSavedMethods((data as { methods?: SavedMethod[] }).methods ?? []);
-    } finally {
-      setSavedMethodsLoading(false);
-    }
-  }, []);
 
   useEffect(() => {
     const check = async () => {
@@ -87,11 +42,6 @@ export default function PaymentMethodsPage() {
         setHasCustomer(!!profile?.paymongo_customer_id);
         setBillingName((profile?.full_name ?? "").trim() || "Cardholder");
         setIsAdmin(profile?.role === "admin");
-        if (profile?.paymongo_customer_id) {
-          await loadSavedMethods();
-        } else {
-          setSavedMethods([]);
-        }
       } catch {
         router.replace("/auth?redirect=/dashboard/payment-methods");
       } finally {
@@ -99,25 +49,18 @@ export default function PaymentMethodsPage() {
       }
     };
     check();
-  }, [supabase, router, loadSavedMethods]);
+  }, [supabase, router]);
 
   useEffect(() => {
     if (searchParams.get("setup") === "success") {
       setSuccess(true);
       setHasCustomer(true);
       setShowForm(false);
-      loadSavedMethods();
       window.history.replaceState({}, "", "/dashboard/payment-methods");
     }
-  }, [searchParams, loadSavedMethods]);
+  }, [searchParams]);
 
   const ensureCustomer = async (): Promise<boolean> => {
-    if (DEMO_PAYMENTS) {
-      setHasCustomer(true);
-      setError("");
-      await loadSavedMethods();
-      return true;
-    }
     const res = await fetchWithTimeout("/api/payment/customer", {
       method: "POST",
       credentials: "include",
@@ -130,33 +73,7 @@ export default function PaymentMethodsPage() {
     }
     setHasCustomer(true);
     setError("");
-    await loadSavedMethods();
     return true;
-  };
-
-  const removeSavedMethod = async (paymentMethodId: string) => {
-    setRemoving(paymentMethodId);
-    setError("");
-    try {
-      if (DEMO_PAYMENTS) {
-        removeDemoCard(paymentMethodId);
-        await loadSavedMethods();
-        return;
-      }
-      const res = await fetchWithTimeout(`/api/payment/saved-methods/${paymentMethodId}`, {
-        method: "DELETE",
-        credentials: "include",
-        timeoutMs: 12000,
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError((data as { error?: string }).error ?? "Could not remove card.");
-        return;
-      }
-      await loadSavedMethods();
-    } finally {
-      setRemoving(null);
-    }
   };
 
   const createPaymentMethod = async (): Promise<string | null> => {
@@ -202,24 +119,6 @@ export default function PaymentMethodsPage() {
     setError("");
     setAdding(true);
     try {
-      if (DEMO_PAYMENTS) {
-        const r = addDemoCardFromInput({ cardNumber, expMonth, expYear });
-        if (!r.ok) {
-          setError(r.error);
-          setAdding(false);
-          return;
-        }
-        setSuccess(true);
-        setHasCustomer(true);
-        setShowForm(false);
-        setCardNumber("");
-        setExpMonth("");
-        setExpYear("");
-        setCvc("");
-        await loadSavedMethods();
-        return;
-      }
-
       if (!hasCustomer && !(await ensureCustomer())) {
         setAdding(false);
         return;
@@ -231,12 +130,7 @@ export default function PaymentMethodsPage() {
       });
       if (!setupRes.ok) {
         const d = await setupRes.json().catch(() => ({}));
-        const msg = (d as { error?: string }).error ?? "Could not start card setup.";
-        if (msg.includes("On session payments are not yet supported")) {
-          setError("Saved cards aren’t enabled for this PayMongo account yet. Turn on DEMO mode for presentation, or enable PayMongo Card Vaulting.");
-        } else {
-          setError(msg);
-        }
+        setError((d as { error?: string }).error ?? "Could not start card setup.");
         setAdding(false);
         return;
       }
@@ -282,7 +176,6 @@ export default function PaymentMethodsPage() {
       setExpMonth("");
       setExpYear("");
       setCvc("");
-      await loadSavedMethods();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -353,11 +246,6 @@ export default function PaymentMethodsPage() {
         <p className="text-white/60 mb-8">
           Add a card to pay for memberships and trainer bookings quickly. Your card is stored securely and can be used for future payments.
         </p>
-        {DEMO_PAYMENTS && (
-          <div className="mb-6 p-4 rounded-xl bg-white/5 border border-white/10 text-white/70 text-sm">
-            Demo mode is ON. Cards are saved locally for presentation (last4 + expiry only).
-          </div>
-        )}
 
         {success && (
           <div className="mb-6 p-4 rounded-xl bg-accent-lime/20 text-accent-lime border border-accent-lime/40">
@@ -371,61 +259,26 @@ export default function PaymentMethodsPage() {
           </div>
         )}
 
-        {!showForm && (
+        {hasCustomer && !showForm && (
           <div className="glass rounded-2xl p-6 max-w-md">
             <div className="flex items-center gap-3 text-white/80">
               <CreditCard className="w-8 h-8 text-accent-lime" />
               <div>
-                <p className="font-medium">Saved payment methods</p>
-                <p className="text-sm text-white/60">
-                  {savedMethodsLoading
-                    ? "Loading your saved cards…"
-                    : savedMethods.length > 0
-                      ? "These cards can be used for faster checkout."
-                      : "No saved cards yet."}
-                </p>
+                <p className="font-medium">Saved payment method</p>
+                <p className="text-sm text-white/60">You have a card on file. It will be used for subscriptions and bookings when available.</p>
               </div>
             </div>
-
-            {savedMethods.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {savedMethods.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center justify-between gap-3 rounded-xl bg-white/5 border border-white/10 px-3 py-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm text-white/80 truncate">
-                        {m.type === "card" ? "Card" : m.type} •••• {m.last4 ?? "----"}
-                      </p>
-                      <p className="text-xs text-white/50">
-                        Exp {String(m.exp_month ?? "").padStart(2, "0")}/{m.exp_year ?? "----"}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={removing === m.id}
-                      onClick={() => removeSavedMethod(m.id)}
-                      className="shrink-0 px-3 py-1.5 rounded-lg bg-red-500/15 text-red-300 border border-red-500/30 hover:bg-red-500/25 text-xs disabled:opacity-50"
-                    >
-                      {removing === m.id ? "Removing…" : "Remove"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
             <button
               type="button"
               onClick={() => setShowForm(true)}
               className="mt-4 px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
             >
-              {savedMethods.length > 0 ? "Add another card" : "Add a card"}
+              Add another card
             </button>
           </div>
         )}
 
-        {showForm && (
+        {(!hasCustomer || showForm) && (
           <div className="glass rounded-2xl p-6 max-w-md">
             <h2 className="text-lg font-semibold mb-4">Add card</h2>
             <p className="text-sm text-white/60 mb-4">

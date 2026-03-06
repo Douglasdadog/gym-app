@@ -7,7 +7,6 @@ import Link from "next/link";
 import { Dumbbell, Crown, Sparkles, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { MEMBERSHIP_TIERS } from "@/lib/tiers";
-import { loadDemoCards } from "@/lib/demoCards";
 import type { Profile } from "@/types/database";
 
 const TIERS_WITH_ICONS = [
@@ -16,14 +15,11 @@ const TIERS_WITH_ICONS = [
   { ...MEMBERSHIP_TIERS[2], icon: Crown, highlight: false },
 ];
 
-const DEMO_PAYMENTS = process.env.NEXT_PUBLIC_DEMO_PAYMENTS === "1";
-
 export default function MembershipPage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState<string | null>(null);
   const [message, setMessage] = useState("");
-  const [demoLast4, setDemoLast4] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -43,12 +39,6 @@ export default function MembershipPage() {
   }, [supabase, router]);
 
   useEffect(() => {
-    if (!DEMO_PAYMENTS) return;
-    const cards = loadDemoCards();
-    setDemoLast4(cards[0]?.last4 ?? null);
-  }, []);
-
-  useEffect(() => {
     const success = searchParams.get("success");
     const tier = searchParams.get("tier");
     if (success === "1" && tier) {
@@ -63,16 +53,6 @@ export default function MembershipPage() {
     setPurchasing(tierId);
     setMessage("");
     try {
-      if (DEMO_PAYMENTS) {
-        if (!demoLast4) {
-          setMessage("Add a card first in Dashboard → Payment.");
-          return;
-        }
-        await new Promise((r) => setTimeout(r, 900));
-        await purchaseDirect(tierId, `Payment successful! Charged •••• ${demoLast4}. Your ${tierId} membership is active.`);
-        return;
-      }
-
       const res = await fetch("/api/payment/create-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -223,13 +203,7 @@ export default function MembershipPage() {
                       : "bg-accent-lime text-black hover:bg-accent-lime/90 disabled:opacity-50"
                   }`}
                 >
-                  {isCurrent
-                    ? "Current Plan"
-                    : purchasing === tier.id
-                      ? "Processing..."
-                      : DEMO_PAYMENTS && demoLast4
-                        ? `Pay with •••• ${demoLast4}`
-                        : `Get ${tier.name}`}
+                  {isCurrent ? "Current Plan" : purchasing === tier.id ? "Processing..." : `Get ${tier.name}`}
                 </button>
               </motion.div>
             );

@@ -7,14 +7,12 @@ import Link from "next/link";
 import { MapPin, Home, Dumbbell, ChevronLeft, ChevronRight, Check, CalendarPlus } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import { createClient } from "@/lib/supabase/client";
-import { loadDemoCards } from "@/lib/demoCards";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, isBefore, startOfDay } from "date-fns";
 import type { Trainer } from "@/types/database";
 import "react-day-picker/style.css";
 
 const TIME_SLOTS = ["06:00", "07:00", "08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
 const TRAVEL_FEE_PER_KM = 2.5;
-const DEMO_PAYMENTS = process.env.NEXT_PUBLIC_DEMO_PAYMENTS === "1";
 
 const SPECIALTY_BADGES: Record<string, string> = {
   "Strength & Conditioning": "Strength King",
@@ -60,7 +58,6 @@ export default function BookingsPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastBooking, setLastBooking] = useState<{ trainer: string; date: string; dateStr: string; time: string; location: string } | null>(null);
   const [bookingError, setBookingError] = useState("");
-  const [demoLast4, setDemoLast4] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
@@ -95,12 +92,6 @@ export default function BookingsPage() {
       window.history.replaceState({}, "", "/bookings");
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    if (!DEMO_PAYMENTS) return;
-    const cards = loadDemoCards();
-    setDemoLast4(cards[0]?.last4 ?? null);
-  }, []);
 
   useEffect(() => {
     if (!authChecked) return;
@@ -177,53 +168,6 @@ export default function BookingsPage() {
     setSubmitting(true);
     const dateStr = format(selectedDate, "yyyy-MM-dd");
     try {
-      if (DEMO_PAYMENTS) {
-        if (!demoLast4) {
-          setBookingError("Add a card first in Dashboard → Payment.");
-          setSubmitting(false);
-          return;
-        }
-        await new Promise((r) => setTimeout(r, 900));
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          setSubmitting(false);
-          return;
-        }
-        const { error } = await supabase.from("bookings").insert({
-          user_id: user.id,
-          trainer_id: selectedTrainer.id,
-          date: dateStr,
-          time_slot: selectedSlot,
-          location_type: locationType,
-          address: locationType === "Home" ? address : null,
-          travel_fee: travelFee,
-          status: "confirmed",
-        });
-        if (error) throw error;
-
-        setLastBooking({
-          trainer: selectedTrainer.name,
-          date: format(selectedDate, "EEE, MMM d, yyyy"),
-          dateStr,
-          time: selectedSlot,
-          location: locationType === "Home" ? "Home" : "Gym",
-        });
-        setShowSuccessModal(true);
-        setSelectedDate(undefined);
-        setSelectedSlot("");
-        setAddress("");
-        setTravelFee(0);
-        setBookingError(`Payment successful! Charged •••• ${demoLast4}.`);
-        setBookedSlots((prev) => {
-          const next = { ...prev };
-          if (!next[dateStr]) next[dateStr] = new Set();
-          next[dateStr].add(selectedSlot);
-          return next;
-        });
-        setSubmitting(false);
-        return;
-      }
-
       const res = await fetch("/api/payment/create-booking-checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
