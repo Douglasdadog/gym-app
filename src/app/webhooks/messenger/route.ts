@@ -236,8 +236,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
-    const isMessenger = body.object === "page";
-
     for (const entry of body.entry) {
       const messaging: MessengerEvent[] = entry.messaging ?? [];
       for (const event of messaging) {
@@ -255,9 +253,10 @@ export async function POST(request: Request) {
           lower === "restart"
         ) {
           await clearConversation(senderId);
-          const resetToken = isMessenger
-            ? process.env.META_PAGE_ACCESS_TOKEN
-            : (process.env.META_IG_ACCESS_TOKEN?.trim() || process.env.META_PAGE_ACCESS_TOKEN);
+          // For Instagram Messaging API, Meta requires a *Facebook Page access token*
+          // for the Page linked to the Instagram Professional account.
+          const resetToken =
+            process.env.META_PAGE_ACCESS_TOKEN?.trim() || process.env.META_IG_ACCESS_TOKEN?.trim();
           if (resetToken) {
             await sendChannelMessage(
               senderId,
@@ -368,15 +367,15 @@ export async function POST(request: Request) {
 
         await maybeInsertLeadFromMessages([...history, { role: "user", content: text }]);
 
-        // Instagram: prefer IG token; fall back to Page token (same token often works when Page is linked to IG)
-        const sendToken = isMessenger
-          ? process.env.META_PAGE_ACCESS_TOKEN
-          : (process.env.META_IG_ACCESS_TOKEN?.trim() || process.env.META_PAGE_ACCESS_TOKEN);
-        if (sendToken) {
+        // Messenger + Instagram replies: use the Page access token whenever available.
+        // Meta requires a Page token with `instagram_manage_messages` to reply to IG DMs.
+        const sendToken =
+          process.env.META_PAGE_ACCESS_TOKEN?.trim() || process.env.META_IG_ACCESS_TOKEN?.trim();
+        if (sendToken?.trim()) {
           await sendChannelMessage(senderId, replyText, sendToken);
-        } else if (!isMessenger) {
+        } else {
           console.warn(
-            "Instagram DM received; reply skipped. Set META_IG_ACCESS_TOKEN or ensure META_PAGE_ACCESS_TOKEN is set (Page must be linked to IG with instagram_manage_messages)."
+            "Meta DM received; reply skipped. Set META_PAGE_ACCESS_TOKEN (Page must be linked to IG and token must include instagram_manage_messages)."
           );
         }
       }
