@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { summarizeConversationForLead } from "@/lib/leadSummary";
 
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile";
@@ -59,6 +60,8 @@ async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
   const lead = extractLeadFromMessages(messages);
   if (!lead) return;
 
+  const { notes } = await summarizeConversationForLead(messages);
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) {
@@ -71,9 +74,9 @@ async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
     name: lead.name,
     email: lead.email,
     phone: (lead.phone ?? "").trim(),
-    interest: lead.interest?.trim() || "Not specified",
+    interest: "Not specified",
     source: "web-chat",
-    notes: "Captured via Apex Assistant conversational flow",
+    notes: (notes && notes.trim()) || "Captured via Apex Assistant conversational flow",
   });
 
   if (error) {

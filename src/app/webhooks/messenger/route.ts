@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { summarizeConversationForLead } from "@/lib/leadSummary";
 
 // Groq (Grok-style) chat completions endpoint
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -162,13 +163,15 @@ async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
   const lead = extractLeadFromMessages(messages);
   if (!lead) return;
 
+  const { interest, notes } = await summarizeConversationForLead(messages);
+
   await insertLead({
     name: lead.name,
     email: lead.email,
     phone: lead.phone,
-    interest: lead.interest,
+    interest: interest || lead.interest,
     source: "meta-messenger",
-    notes: "Captured via Apex Assistant (Messenger) conversational flow",
+    notes: notes || "Captured via Apex Assistant (Messenger) conversational flow",
   });
 }
 
