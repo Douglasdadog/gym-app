@@ -182,7 +182,48 @@ async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
   });
 }
 
-async function sendChannelMessage(recipientId: string, text: string, token: string | undefined) {
+async function debugLinkedInstagramBusinessId(pageToken: string): Promise<{
+  page_id?: string;
+  page_name?: string;
+  instagram_business_account_id?: string;
+} | null> {
+  try {
+    const meRes = await fetch(
+      `https://graph.facebook.com/v21.0/me?fields=id,name&access_token=${encodeURIComponent(
+        pageToken
+      )}`,
+      { method: "GET" }
+    );
+    if (!meRes.ok) return null;
+    const me = (await meRes.json()) as { id?: string; name?: string };
+    if (!me?.id) return null;
+
+    const igRes = await fetch(
+      `https://graph.facebook.com/v21.0/${encodeURIComponent(
+        me.id
+      )}?fields=instagram_business_account&access_token=${encodeURIComponent(pageToken)}`,
+      { method: "GET" }
+    );
+    if (!igRes.ok) return { page_id: me.id, page_name: me.name };
+    const ig = (await igRes.json()) as {
+      instagram_business_account?: { id?: string };
+    };
+    return {
+      page_id: me.id,
+      page_name: me.name,
+      instagram_business_account_id: ig.instagram_business_account?.id,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function sendChannelMessage(
+  recipientId: string,
+  text: string,
+  token: string | undefined,
+  ctx?: { object?: "page" | "instagram"; entry_id?: string }
+) {
   if (!token?.trim()) {
     console.warn("[Meta] Reply skipped: missing META_PAGE_ACCESS_TOKEN");
     return;
@@ -228,6 +269,17 @@ async function sendChannelMessage(recipientId: string, text: string, token: stri
         "[Meta] Send failed: No matching user. For Instagram DMs: ensure the Page is linked to the IG Professional account, webhook is subscribed to Instagram messages, token has instagram_manage_messages, and user messaged you within 24 hours.",
         { code, sub, fbtrace_id: meta?.fbtrace_id, msg }
       );
+      if (ctx?.object === "instagram") {
+        const debug = await debugLinkedInstagramBusinessId(token.trim());
+        if (debug) {
+          console.warn("[Meta] IG linkage debug", {
+            webhook_entry_id: ctx.entry_id,
+            page_id: debug.page_id,
+            page_name: debug.page_name,
+            linked_instagram_business_account_id: debug.instagram_business_account_id,
+          });
+        }
+      }
     } else if (code === 10 || code === 200 || msg.toLowerCase().includes("permission")) {
       console.warn(
         "[Meta] Send failed: missing permissions. Ensure META_PAGE_ACCESS_TOKEN is a Page token for the linked Page and has instagram_manage_messages + pages_manage_metadata (Advanced access if needed).",
@@ -269,6 +321,7 @@ export async function POST(request: Request) {
     }
 
     for (const entry of body.entry) {
+      const entryId = String(entry?.id ?? "");
       const messaging: MessengerEvent[] = entry.messaging ?? [];
       for (const event of messaging) {
         const senderId = event.sender?.id;
@@ -409,7 +462,10 @@ export async function POST(request: Request) {
         const sendToken =
           process.env.META_PAGE_ACCESS_TOKEN?.trim() || process.env.META_IG_ACCESS_TOKEN?.trim();
         if (sendToken?.trim()) {
-          await sendChannelMessage(senderId, replyText, sendToken);
+          await sendChannelMessage(senderId, replyText, sendToken, {
+            object: body.object,
+            entry_id: entryId,
+          });
         } else {
           console.warn(
             "Meta DM received; reply skipped. Set META_PAGE_ACCESS_TOKEN (Page must be linked to IG and token must include instagram_manage_messages)."
