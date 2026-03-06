@@ -90,10 +90,25 @@ export async function POST(request: NextRequest) {
     });
 
     if (!res.ok) {
-      const errText = await res.text();
-      console.error("PayMongo booking checkout error", res.status, errText);
+      const raw = await res.text();
+      console.error("PayMongo booking checkout error", res.status, raw);
+      let detail = "Could not create checkout. Try again.";
+      try {
+        const parsed = JSON.parse(raw) as {
+          errors?: Array<{ detail?: string }>;
+          error?: { message?: string };
+          message?: string;
+        };
+        detail =
+          parsed.errors?.[0]?.detail ||
+          parsed.error?.message ||
+          parsed.message ||
+          detail;
+      } catch {
+        // keep fallback detail
+      }
       return NextResponse.json(
-        { error: "Could not create checkout. Try again." },
+        { error: `PayMongo: ${detail}` },
         { status: 502 }
       );
     }
