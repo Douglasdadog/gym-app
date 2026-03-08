@@ -118,28 +118,21 @@ async function getConversationMessages(senderId: string): Promise<ChatMessage[]>
   return rows.reverse();
 }
 
-async function alreadyProcessedMessageId(messageId: string): Promise<boolean> {
+/** Returns true if we "claimed" this message (first to insert); false if duplicate (skip). */
+async function claimMessageId(messageId: string): Promise<boolean> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceKey) return false;
+  if (!supabaseUrl || !serviceKey) return true; // no DB: allow process (avoid blocking)
   const supabaseAdmin = createServiceClient(supabaseUrl, serviceKey);
-  const { data, error } = await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from("webhook_processed_message_ids")
-    .select("message_id")
-    .eq("message_id", messageId)
-    .maybeSingle();
-  return !error && data != null;
-}
-
-async function recordProcessedMessageId(messageId: string): Promise<void> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceKey) return;
-  const supabaseAdmin = createServiceClient(supabaseUrl, serviceKey);
-  await supabaseAdmin.from("webhook_processed_message_ids").upsert(
-    { message_id: messageId, created_at: new Date().toISOString() },
-    { onConflict: "message_id" }
-  );
+    .insert({ message_id: messageId });
+  if (error) {
+    if (error.code === "23505") return false; // unique violation = already claimed
+    console.error("[Meta webhook] dedup table error:", error.message);
+    return true; // allow process on other errors so bot still replies
+  }
+  return true;
 }
 
 function extractLeadFromMessages(messages: ChatMessage[]) {
@@ -368,12 +361,11 @@ export async function POST(request: Request) {
         if (!senderId || !text) continue;
 
         const mid = event.message?.mid;
-        const ts = event.timestamp ?? 0;
-        const dedupKey = mid ?? `fb_${senderId}_${ts}_${text.slice(0, 60).replace(/\s+/g, " ").trim()}`;
+        const textNorm = text.slice(0, 80).replace(/\s+/g, " ").trim();
+        const dedupKey = mid ?? `fb_${senderId}_${textNorm}`;
         if (processedMidThisRequest.has(dedupKey)) continue;
         processedMidThisRequest.add(dedupKey);
-        if (await alreadyProcessedMessageId(dedupKey)) continue;
-        await recordProcessedMessageId(dedupKey);
+        if (!(await claimMessageId(dedupKey))) continue; // duplicate delivery, skip
 
         const lower = text.toLowerCase().trim();
 
