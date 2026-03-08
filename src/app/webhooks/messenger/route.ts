@@ -9,6 +9,7 @@ const GROQ_MODEL = "llama-3.3-70b-versatile";
 
 type MessengerEvent = {
   sender?: { id: string };
+  timestamp?: number;
   message?: {
     mid?: string;
     text?: string;
@@ -367,12 +368,12 @@ export async function POST(request: Request) {
         if (!senderId || !text) continue;
 
         const mid = event.message?.mid;
-        if (mid) {
-          if (processedMidThisRequest.has(mid)) continue;
-          processedMidThisRequest.add(mid);
-          if (await alreadyProcessedMessageId(mid)) continue;
-          await recordProcessedMessageId(mid);
-        }
+        const ts = event.timestamp ?? 0;
+        const dedupKey = mid ?? `fb_${senderId}_${ts}_${text.slice(0, 60).replace(/\s+/g, " ").trim()}`;
+        if (processedMidThisRequest.has(dedupKey)) continue;
+        processedMidThisRequest.add(dedupKey);
+        if (await alreadyProcessedMessageId(dedupKey)) continue;
+        await recordProcessedMessageId(dedupKey);
 
         const lower = text.toLowerCase().trim();
 
