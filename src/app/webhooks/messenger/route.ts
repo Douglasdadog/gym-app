@@ -10,6 +10,7 @@ const GROQ_MODEL = "llama-3.3-70b-versatile";
 type MessengerEvent = {
   sender?: { id: string };
   message?: {
+    mid?: string;
     text?: string;
     is_echo?: boolean;
     is_deleted?: boolean;
@@ -116,6 +117,30 @@ async function getConversationMessages(senderId: string): Promise<ChatMessage[]>
   return rows.reverse();
 }
 
+async function alreadyProcessedMessageId(messageId: string): Promise<boolean> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return false;
+  const supabaseAdmin = createServiceClient(supabaseUrl, serviceKey);
+  const { data, error } = await supabaseAdmin
+    .from("webhook_processed_message_ids")
+    .select("message_id")
+    .eq("message_id", messageId)
+    .maybeSingle();
+  return !error && data != null;
+}
+
+async function recordProcessedMessageId(messageId: string): Promise<void> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return;
+  const supabaseAdmin = createServiceClient(supabaseUrl, serviceKey);
+  await supabaseAdmin.from("webhook_processed_message_ids").upsert(
+    { message_id: messageId, created_at: new Date().toISOString() },
+    { onConflict: "message_id" }
+  );
+}
+
 function extractLeadFromMessages(messages: ChatMessage[]) {
   let name: string | null = null;
   let email: string | null = null;
@@ -204,7 +229,13 @@ async function debugLinkedInstagramBusinessId(pageToken: string): Promise<{
       )}?fields=instagram_business_account&access_token=${encodeURIComponent(pageToken)}`,
       { method: "GET" }
     );
-    if (!igRes.ok) return { page_id: me.id, page_name: me.name };
+    if (!igRes.ok) {
+      const errBody = await igRes.json().catch(() => ({})) as { error?: { message?: string } };
+      if (errBody?.error?.message?.includes("nonexisting field")) {
+        return { page_id: me.id, page_name: me.name, instagram_business_account_id: undefined };
+      }
+      return { page_id: me.id, page_name: me.name };
+    }
     const ig = (await igRes.json()) as {
       instagram_business_account?: { id?: string };
     };
@@ -320,6 +351,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true }, { status: 200 });
     }
 
+    const processedMidThisRequest = new Set<string>();
+
     for (const entry of body.entry) {
       const entryId = String(entry?.id ?? "");
       const messaging: MessengerEvent[] = entry.messaging ?? [];
@@ -332,6 +365,14 @@ export async function POST(request: Request) {
           event.message?.text ??
           (event.message?.attachments?.length ? "[Sent an attachment]" : null);
         if (!senderId || !text) continue;
+
+        const mid = event.message?.mid;
+        if (mid) {
+          if (processedMidThisRequest.has(mid)) continue;
+          processedMidThisRequest.add(mid);
+          if (await alreadyProcessedMessageId(mid)) continue;
+          await recordProcessedMessageId(mid);
+        }
 
         const lower = text.toLowerCase().trim();
 
