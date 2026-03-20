@@ -194,12 +194,39 @@ function extractLeadFromMessages(messages: ChatMessage[]) {
 
 async function maybeInsertLeadFromMessages(
   messages: ChatMessage[],
+  senderId: string,
   source: "meta-messenger" | "meta-instagram",
 ) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) return;
+  const supabaseAdmin = createServiceClient(supabaseUrl, serviceKey);
+
+  const senderMarker = `[sender:${senderId}]`;
+  const { data: existing } = await supabaseAdmin
+    .from("leads")
+    .select("id")
+    .eq("source", source)
+    .ilike("notes", `%${senderMarker}%`)
+    .limit(1)
+    .maybeSingle();
+  if (existing?.id) return;
+
   const lead = extractLeadFromMessages(messages);
-  if (!lead) return;
 
   const { interest, notes } = await summarizeConversationForLead(messages);
+
+  if (!lead) {
+    await insertLead({
+      name: source === "meta-instagram" ? `Instagram User (${senderId.slice(0, 8)})` : `Messenger User (${senderId.slice(0, 8)})`,
+      email: null,
+      phone: null,
+      interest: interest || "Not specified",
+      source,
+      notes: `${notes || "Captured via Apex Assistant conversational flow"} ${senderMarker}`,
+    });
+    return;
+  }
 
   await insertLead({
     name: lead.name,
@@ -210,8 +237,8 @@ async function maybeInsertLeadFromMessages(
     notes:
       notes ||
       (source === "meta-instagram"
-        ? "Captured via Apex Assistant (Instagram DM) conversational flow"
-        : "Captured via Apex Assistant (Messenger) conversational flow"),
+        ? `Captured via Apex Assistant (Instagram DM) conversational flow ${senderMarker}`
+        : `Captured via Apex Assistant (Messenger) conversational flow ${senderMarker}`),
   });
 }
 
@@ -507,6 +534,7 @@ export async function POST(request: Request) {
 
         await maybeInsertLeadFromMessages(
           [...history, { role: "user", content: text }],
+          senderId,
           channel === "instagram" ? "meta-instagram" : "meta-messenger",
         );
 
