@@ -21,6 +21,7 @@ type MessengerEvent = {
 };
 
 type ChatMessage = { role: "user" | "assistant"; content: string };
+type ConversationChannel = "messenger" | "instagram";
 
 // GET: Webhook verification (Meta sends hub.challenge here)
 export async function GET(request: Request) {
@@ -72,6 +73,7 @@ async function insertLead(lead: {
 async function saveConversationMessage(
   senderId: string,
   message: ChatMessage,
+  channel: ConversationChannel,
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -83,6 +85,7 @@ async function saveConversationMessage(
   const supabaseAdmin = createServiceClient(supabaseUrl, serviceKey);
   const { error } = await supabaseAdmin.from("messenger_conversations").insert({
     sender_id: senderId,
+    channel,
     role: message.role,
     content: message.content,
   });
@@ -92,7 +95,10 @@ async function saveConversationMessage(
   }
 }
 
-async function getConversationMessages(senderId: string): Promise<ChatMessage[]> {
+async function getConversationMessages(
+  senderId: string,
+  channel: ConversationChannel,
+): Promise<ChatMessage[]> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) {
@@ -105,6 +111,7 @@ async function getConversationMessages(senderId: string): Promise<ChatMessage[]>
     .from("messenger_conversations")
     .select("role, content")
     .eq("sender_id", senderId)
+    .eq("channel", channel)
     .order("created_at", { ascending: false })
     .limit(15);
 
@@ -185,7 +192,10 @@ function extractLeadFromMessages(messages: ChatMessage[]) {
   };
 }
 
-async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
+async function maybeInsertLeadFromMessages(
+  messages: ChatMessage[],
+  source: "meta-messenger" | "meta-instagram",
+) {
   const lead = extractLeadFromMessages(messages);
   if (!lead) return;
 
@@ -196,8 +206,12 @@ async function maybeInsertLeadFromMessages(messages: ChatMessage[]) {
     email: lead.email,
     phone: lead.phone,
     interest: interest || lead.interest,
-    source: "meta-messenger",
-    notes: notes || "Captured via Apex Assistant (Messenger) conversational flow",
+    source,
+    notes:
+      notes ||
+      (source === "meta-instagram"
+        ? "Captured via Apex Assistant (Instagram DM) conversational flow"
+        : "Captured via Apex Assistant (Messenger) conversational flow"),
   });
 }
 
@@ -351,6 +365,8 @@ export async function POST(request: Request) {
       const entryId = String(entry?.id ?? "");
       const messaging: MessengerEvent[] = entry.messaging ?? [];
       for (const event of messaging) {
+        const channel: ConversationChannel =
+          body.object === "instagram" ? "instagram" : "messenger";
         const senderId = event.sender?.id;
         const isEcho = event.message?.is_echo;
         if (isEcho) continue;
@@ -392,9 +408,9 @@ export async function POST(request: Request) {
         }
 
         // Save the new user message in our conversation history
-        await saveConversationMessage(senderId, { role: "user", content: text });
+        await saveConversationMessage(senderId, { role: "user", content: text }, channel);
 
-        const history = await getConversationMessages(senderId);
+        const history = await getConversationMessages(senderId, channel);
 
         const systemPrompt =
           "You are Apex Assistant, a professional, high-energy gym consultant for Cyber-Gym in the Philippines (assume Metro Manila, currency PHP). " +
@@ -487,9 +503,12 @@ export async function POST(request: Request) {
         await saveConversationMessage(senderId, {
           role: "assistant",
           content: replyText,
-        });
+        }, channel);
 
-        await maybeInsertLeadFromMessages([...history, { role: "user", content: text }]);
+        await maybeInsertLeadFromMessages(
+          [...history, { role: "user", content: text }],
+          channel === "instagram" ? "meta-instagram" : "meta-messenger",
+        );
 
         // Messenger + Instagram replies: use the Page access token whenever available.
         // Meta requires a Page token with `instagram_manage_messages` to reply to IG DMs.

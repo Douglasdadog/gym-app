@@ -40,6 +40,14 @@ type LeadTask = {
   completed_at: string | null;
   created_at: string;
 };
+type MetaConversation = {
+  sender_id: string;
+  channel: "messenger" | "instagram";
+  last_message: string;
+  last_role: "user" | "assistant";
+  last_at: string;
+  message_count: number;
+};
 
 const STATUS_OPTIONS = [
   { value: "new", label: "New" },
@@ -52,6 +60,7 @@ export default function AdminLeadsPage() {
   const [leads, setLeads] = useState<LeadRow[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
+  const [conversations, setConversations] = useState<MetaConversation[]>([]);
   const [filterSource, setFilterSource] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -70,14 +79,17 @@ export default function AdminLeadsPage() {
       if (!res.ok) {
         setLeads([]);
         setStaff([]);
+        setConversations([]);
         setLoading(false);
         return;
       }
       setLeads(data.leads ?? []);
       setStaff(data.staff ?? []);
+      setConversations(data.conversations ?? []);
     } catch {
       setLeads([]);
       setStaff([]);
+      setConversations([]);
     } finally {
       setLoading(false);
     }
@@ -105,6 +117,7 @@ export default function AdminLeadsPage() {
         const source = (l.source ?? "chatbot").toLowerCase();
         if (filterSource === "chatbot" && source !== "chatbot" && source !== "web-chat") return false;
         if (filterSource === "messenger" && source !== "meta-messenger") return false;
+        if (filterSource === "instagram" && source !== "meta-instagram") return false;
       }
       if (filterStatus !== "all") {
         const status = (l.status ?? "new").toLowerCase();
@@ -229,9 +242,47 @@ export default function AdminLeadsPage() {
               <option value="all">All sources</option>
               <option value="chatbot">Chatbot (Web)</option>
               <option value="messenger">Messenger</option>
+              <option value="instagram">Instagram</option>
             </select>
           </div>
         </div>
+
+        {conversations.length > 0 && (
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-white/80 mb-2">
+              Meta Conversations (Messenger + Instagram)
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {conversations.slice(0, 8).map((c) => (
+                <div
+                  key={`${c.channel}-${c.sender_id}`}
+                  className="rounded-xl border border-white/10 bg-white/5 px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-2 text-xs mb-1">
+                    <span
+                      className={`px-2 py-0.5 rounded-full ${
+                        c.channel === "instagram"
+                          ? "bg-pink-500/20 text-pink-300"
+                          : "bg-blue-500/20 text-blue-300"
+                      }`}
+                    >
+                      {c.channel === "instagram" ? "Instagram" : "Messenger"}
+                    </span>
+                    <span className="text-white/50">
+                      {new Date(c.last_at).toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-white/80 truncate">
+                    {c.last_role === "assistant" ? "Bot:" : "User:"} {c.last_message}
+                  </p>
+                  <p className="text-[11px] text-white/50 mt-1">
+                    Sender: {c.sender_id.slice(0, 8)}... • {c.message_count} msgs
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center py-16">
@@ -291,6 +342,7 @@ export default function AdminLeadsPage() {
                       {(() => {
                         const src = (lead.source ?? "chatbot").toLowerCase();
                         if (src === "meta-messenger") return "MESSENGER";
+                        if (src === "meta-instagram") return "INSTAGRAM";
                         if (src === "web-chat") return "WEB CHAT";
                         return "CHATBOT";
                       })()}
