@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const threads = [...map.values()].sort(
+    const threads = Array.from(map.values()).sort(
       (a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime()
     );
     return NextResponse.json({ threads });

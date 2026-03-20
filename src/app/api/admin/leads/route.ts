@@ -91,7 +91,7 @@ export async function GET() {
       }
     }
 
-    const conversations = [...conversationMap.values()].sort(
+    const conversations = Array.from(conversationMap.values()).sort(
       (a, b) => new Date(b.last_at).getTime() - new Date(a.last_at).getTime()
     );
 
