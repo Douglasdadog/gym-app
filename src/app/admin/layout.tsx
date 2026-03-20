@@ -12,6 +12,7 @@ import {
   LogOut,
   UserPlus,
   Calendar,
+  MessageSquare,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
@@ -21,6 +22,7 @@ const ADMIN_NAV = [
   { href: "/admin/schedule", label: "Schedule", icon: Calendar },
   { href: "/admin/members", label: "Member List", icon: Users },
   { href: "/admin/leads", label: "Leads", icon: UserPlus },
+  { href: "/admin/inbox", label: "Inbox", icon: MessageSquare },
   { href: "/admin/trainers", label: "Trainer Payouts", icon: Wallet },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
