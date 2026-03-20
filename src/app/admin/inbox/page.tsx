@@ -113,10 +113,10 @@ export default function AdminInboxPage() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 h-[calc(100vh-120px)] flex flex-col overflow-hidden">
       <h1 className="text-2xl sm:text-3xl font-bold">Inbox (Messenger + Instagram)</h1>
-      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
-        <div className="glass rounded-2xl border border-white/10 p-3 max-h-[75vh] overflow-y-auto">
+      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4 flex-1 min-h-0">
+        <div className="glass rounded-2xl border border-white/10 p-3 h-full overflow-y-auto">
           <h2 className="text-sm font-semibold text-white/80 mb-2">Threads</h2>
           {loadingThreads ? (
             <div className="py-6 flex justify-center">
@@ -161,7 +161,7 @@ export default function AdminInboxPage() {
           )}
         </div>
 
-        <div className="glass rounded-2xl border border-white/10 p-4 flex flex-col min-h-[75vh]">
+        <div className="glass rounded-2xl border border-white/10 p-4 flex flex-col h-full min-h-0">
           {!selected ? (
             <p className="text-white/50 text-sm">Select a thread to view messages.</p>
           ) : (
@@ -171,7 +171,7 @@ export default function AdminInboxPage() {
                   {selected.channel === "instagram" ? "Instagram" : "Messenger"} • {selected.sender_id}
                 </p>
               </div>
-              <div className="flex-1 overflow-y-auto py-3 space-y-2">
+              <div className="flex-1 min-h-0 overflow-y-auto py-3 space-y-2">
                 {loadingMessages ? (
                   <div className="py-6 flex justify-center">
                     <Loader2 className="w-5 h-5 animate-spin text-accent-lime" />
